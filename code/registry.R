@@ -1,3 +1,4 @@
+# this registry has all possible tabs in the modules folder
 tab_registry <- list(
   umap = list(
     title  = "UMAP",
