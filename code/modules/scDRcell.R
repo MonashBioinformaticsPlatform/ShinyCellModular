@@ -1,4 +1,7 @@
 # CellInfo vs CellInfo
+# This tab is base in the orginal "cellinfo_geneexpr" in ShinyCell
+# id     = "cellinfo_cellInfo",
+# title  = "CellInfo vs CellInfo",
 ########################################## Function ########################################################
 
 # Plot cell information on dimred 
@@ -73,6 +76,8 @@ scDRcell <- function(inpConf, inpMeta, inpdrX, inpdrY, inp1, inpsub1, inpsub2,
 
 ########################################## UI ########################################################
 scDRcell_ui <- function(id, sc1conf, sc1def) {
+  ns <- NS(id)
+  
   tabPanel( 
     HTML("CellInfo vs CellInfo"), 
     h4("Cell information vs cell information on dimension reduction"), 
@@ -84,44 +89,44 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
         3, h4("Dimension Reduction"), 
         fluidRow( 
           column( 
-            12, selectInput("sc1a2drX", "X-axis:", choices = sc1conf[dimred == TRUE]$UI, 
+            12, selectInput(ns("sc1a2drX"), "X-axis:", choices = sc1conf[dimred == TRUE]$UI, 
                            selected = sc1def$dimred[1]), 
-            selectInput("sc1a2drY", "Y-axis:", choices = sc1conf[dimred == TRUE]$UI, 
+            selectInput(ns("sc1a2drY"), "Y-axis:", choices = sc1conf[dimred == TRUE]$UI, 
                         selected = sc1def$dimred[2])) 
         ) 
       ), # End of column (6 space) 
       column( 
-        3, actionButton("sc1a2togL", "Toggle to subset cells"), 
+        3, actionButton(ns("sc1a2togL"), "Toggle to subset cells"), 
         conditionalPanel( 
           condition = "input.sc1a2togL % 2 == 1", 
-          selectInput("sc1a2sub1", "Cell information to subset:", 
+          selectInput(ns("sc1a2sub1"), "Cell information to subset:", 
                       choices = sc1conf[grp == TRUE]$UI, 
                       selected = sc1def$grp1), 
-          uiOutput("sc1a2sub1.ui"), 
-          actionButton("sc1a2sub1all", "Select all groups", class = "btn btn-primary"), 
-          actionButton("sc1a2sub1non", "Deselect all groups", class = "btn btn-primary") 
+          uiOutput(ns("sc1a2sub1.ui")), 
+          actionButton(ns("sc1a2sub1all"), "Select all groups", class = "btn btn-primary"), 
+          actionButton(ns("sc1a2sub1non"), "Deselect all groups", class = "btn btn-primary") 
         ) 
       ), # End of column (6 space) 
       column( 
-        6, actionButton("sc1a2tog0", "Toggle graphics controls"), 
+        6, actionButton(ns("sc1a2tog0"), "Toggle graphics controls"), 
         conditionalPanel( 
           condition = "input.sc1a2tog0 % 2 == 1", 
           fluidRow( 
             column( 
-              6, sliderInput("sc1a2siz", "Point size:", 
+              6, sliderInput(ns("sc1a2siz"), "Point size:", 
                              min = 0, max = 4, value = 1.25, step = 0.25), 
-              radioButtons("sc1a2psz", "Plot size:", 
+              radioButtons(ns("sc1a2psz"), "Plot size:", 
                            choices = c("Small", "Medium", "Large"), 
                            selected = "Medium", inline = TRUE), 
-              radioButtons("sc1a2fsz", "Font size:", 
+              radioButtons(ns("sc1a2fsz"), "Font size:", 
                            choices = c("Small", "Medium", "Large"), 
                            selected = "Medium", inline = TRUE) 
             ), 
             column( 
-              6, radioButtons("sc1a2asp", "Aspect ratio:", 
+              6, radioButtons(ns("sc1a2asp"), "Aspect ratio:", 
                               choices = c("Square", "Fixed", "Free"), 
                               selected = "Square", inline = TRUE), 
-              checkboxInput("sc1a2txt", "Show axis text", value = FALSE) 
+              checkboxInput(ns("sc1a2txt"), "Show axis text", value = FALSE) 
             ) 
           ) 
         ) 
@@ -132,7 +137,7 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
         6, style="border-right: 2px solid black", h4("Cell information 1"), 
         fluidRow( 
           column( 
-            6, selectInput("sc1a2inp1", "Cell information:", 
+            6, selectInput(ns("sc1a2inp1"), "Cell information:", 
                            choices = sc1conf$UI, 
                            selected = sc1def$meta1) %>%  
               helper(type = "inline", size = "m", fade = TRUE, 
@@ -144,17 +149,17 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
                                         "changed in the plot controls"))) 
           ), 
           column( 
-            6, actionButton("sc1a2tog1", "Toggle plot controls"), 
+            6, actionButton(ns("sc1a2tog1"), "Toggle plot controls"), 
             conditionalPanel( 
               condition = "input.sc1a2tog1 % 2 == 1", 
-              radioButtons("sc1a2col1", "Colour (Continuous data):", 
+              radioButtons(ns("sc1a2col1"), "Colour (Continuous data):", 
                            choices = c("White-Red", "Blue-Yellow-Red", 
                                        "Yellow-Green-Purple"), 
                            selected = "Blue-Yellow-Red"), 
-              radioButtons("sc1a2ord1", "Plot order:", 
+              radioButtons(ns("sc1a2ord1"), "Plot order:", 
                            choices = c("Max-1st", "Min-1st", "Original", "Random"), 
                            selected = "Original", inline = TRUE), 
-              checkboxInput("sc1a2lab1", "Show cell info labels", value = TRUE) 
+              checkboxInput(ns("sc1a2lab1"), "Show cell info labels", value = TRUE) 
             ) 
           ) 
         ), 
@@ -172,7 +177,7 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
         6, h4("Cell information 2"), 
         fluidRow( 
           column( 
-            6, selectInput("sc1a2inp2", "Cell information:", 
+            6, selectInput(ns("sc1a2inp2"), "Cell information:", 
                            choices = sc1conf$UI, 
                            selected = sc1def$meta2) %>%  
               helper(type = "inline", size = "m", fade = TRUE, 
@@ -184,17 +189,17 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
                                         "changed in the plot controls"))) 
           ), 
           column( 
-            6, actionButton("sc1a2tog2", "Toggle plot controls"), 
+            6, actionButton(ns("sc1a2tog2"), "Toggle plot controls"), 
             conditionalPanel( 
               condition = "input.sc1a2tog2 % 2 == 1", 
-              radioButtons("sc1a2col2", "Colour (Continuous data):", 
+              radioButtons(ns("sc1a2col2"), "Colour (Continuous data):", 
                            choices = c("White-Red", "Blue-Yellow-Red", 
                                        "Yellow-Green-Purple"), 
                            selected = "Blue-Yellow-Red"), 
-              radioButtons("sc1a2ord2", "Plot order:", 
+              radioButtons(ns("sc1a2ord2"), "Plot order:", 
                            choices = c("Max-1st", "Min-1st", "Original", "Random"), 
                            selected = "Original", inline = TRUE), 
-              checkboxInput("sc1a2lab2", "Show cell info labels", value = TRUE) 
+              checkboxInput(ns("sc1a2lab2"), "Show cell info labels", value = TRUE) 
             ) 
           ) 
         ), 
@@ -213,8 +218,11 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
 }
 ########################################## server ########################################################
 
-scDRcell_server <- function(id, sc1conf, sc1def) {
-     ns <- NS(id)
+scDRcell_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
+  moduleServer(id, function(input, output, session) {
+    
+    ns <- session$ns
+    
   ### Plots for tab a2 
   output$sc1a2sub1.ui <- renderUI({ 
     sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
@@ -290,5 +298,18 @@ scDRcell_server <- function(id, sc1conf, sc1def) {
                       input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2,  
                       input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) ) 
   }) 
+ }
+ )
 }
-   
+
+
+
+############################################### Registration #################################################
+
+register_tab(
+  id     = "cellinfo_cellinfo",
+  title  = "CellInfo vs CellInfo",
+  ui     = scDRcell_ui,
+  server = scDRcell_server
+)
+
