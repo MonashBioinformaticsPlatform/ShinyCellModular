@@ -68,6 +68,20 @@ write_parquet(markers_list,"Files_ShinyCell/markergenes_lists.parquet")
 
 
 ##########################################################################################################
+# add a reduction for 3D plotting
+##########################################################################################################
+
+cnts <- RunUMAP(
+  cnts,
+  reduction = "pca",  # or "pca"
+  dims = 1:30,
+  n.components = 3,
+  reduction.name = "pca_umap3d"
+)
+
+
+
+##########################################################################################################
 # Create the configuration files for a ShinyCell app (For only RNA assays)
 ##########################################################################################################
 library(Seurat)
@@ -104,12 +118,11 @@ useShinyCellPlus(
     shinycellplus.dir.src="~/Dropbox/BioPlatform/ShinyCellPlus_devel/ShinyCellPlus/",
     rsconnect.deploy = FALSE,
     data_type = "",
-    enabled_tabs = "cellinfo_cellinfo",
+    enabled_tabs = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex"),
     overwrite_code = TRUE,
     app_title='Testing'
 )
 
-# voy aqui. pero no funcione bien la tabla
 
 
 

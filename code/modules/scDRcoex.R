@@ -1,4 +1,7 @@
- 
+# This tab is base in the orginal "genecoex" in ShinyCell
+# id     = "genecoex",
+# title  = "Gene Coexpression",
+
 ##################################################### Functions #########################################################
 # Plot gene coexpression on dimred 
 bilinear <- function(x,y,xy,Q11,Q21,Q12,Q22){ 
@@ -156,6 +159,8 @@ scDRcoexNum <- function(inpConf, inpMeta, inp1, inp2, inpsub1, inpsub2, inpH5, i
 ##################################################### UI #########################################################
 
 scDRcoex_ui <- function(id, sc1conf, sc1def){
+  ns <- NS(id)
+  
   tabPanel( 
     HTML("Gene coexpression"), 
     h4("Coexpression of two genes on reduced dimensions"), 
@@ -167,44 +172,44 @@ scDRcoex_ui <- function(id, sc1conf, sc1def){
         3, h4("Dimension Reduction"), 
         fluidRow( 
           column( 
-            12, selectInput("sc1b2drX", "X-axis:", choices = sc1conf[dimred == TRUE]$UI, 
+            12, selectInput(ns("sc1b2drX"), "X-axis:", choices = sc1conf[dimred == TRUE]$UI, 
                             selected = sc1def$dimred[1]), 
-            selectInput("sc1b2drY", "Y-axis:", choices = sc1conf[dimred == TRUE]$UI, 
+            selectInput(ns("sc1b2drY"), "Y-axis:", choices = sc1conf[dimred == TRUE]$UI, 
                         selected = sc1def$dimred[2])) 
         ) 
       ), # End of column (6 space) 
       column( 
-        3, actionButton("sc1b2togL", "Toggle to subset cells"), 
+        3, actionButton(ns("sc1b2togL"), "Filter Cells"), 
         conditionalPanel( 
-          condition = "input.sc1b2togL % 2 == 1", 
-          selectInput("sc1b2sub1", "Cell information to subset:", 
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1b2togL")),
+          selectInput(ns("sc1b2sub1"), "Cell information to subset:", 
                       choices = sc1conf[grp == TRUE]$UI, 
                       selected = sc1def$grp1), 
-          uiOutput("sc1b2sub1.ui"), 
-          actionButton("sc1b2sub1all", "Select all groups", class = "btn btn-primary"), 
-          actionButton("sc1b2sub1non", "Deselect all groups", class = "btn btn-primary") 
+          uiOutput(ns("sc1b2sub1.ui")), 
+          actionButton(ns("sc1b2sub1all"), "Select all groups", class = "btn btn-primary"), 
+          actionButton(ns("sc1b2sub1non"), "Deselect all groups", class = "btn btn-primary") 
         ) 
       ), # End of column (6 space) 
       column( 
-        6, actionButton("sc1b2tog0", "Toggle graphics controls"), 
+        6, actionButton(ns("sc1b2tog0"), "Customize plot"), 
         conditionalPanel( 
-          condition = "input.sc1b2tog0 % 2 == 1", 
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1b2tog0")),
           fluidRow( 
             column( 
-              6, sliderInput("sc1b2siz", "Point size:", 
+              6, sliderInput(ns("sc1b2siz"), "Point size:", 
                               min = 0, max = 4, value = 1.25, step = 0.25), 
-              radioButtons("sc1b2psz", "Plot size:", 
+              radioButtons(ns("sc1b2psz"), "Plot size:", 
                             choices = c("Small", "Medium", "Large"), 
                             selected = "Medium", inline = TRUE), 
-              radioButtons("sc1b2fsz", "Font size:", 
+              radioButtons(ns("sc1b2fsz"), "Font size:", 
                             choices = c("Small", "Medium", "Large"), 
                             selected = "Medium", inline = TRUE) 
             ), 
             column( 
-              6, radioButtons("sc1b2asp", "Aspect ratio:", 
+              6, radioButtons(ns("sc1b2asp"), "Aspect ratio:", 
                               choices = c("Square", "Fixed", "Free"), 
                               selected = "Square", inline = TRUE), 
-              checkboxInput("sc1b2txt", "Show axis text", value = FALSE) 
+              checkboxInput(ns("sc1b2txt"), "Show axis text", value = FALSE) 
             ) 
           ) 
         ) 
@@ -213,52 +218,52 @@ scDRcoex_ui <- function(id, sc1conf, sc1def){
     fluidRow( 
       column( 
         3, style="border-right: 2px solid black", h4("Gene Expression"), 
-        selectInput("sc1b2inp1", "Gene 1:", choices=NULL) %>%  
+        selectInput(ns("sc1b2inp1"), "Gene 1:", choices=NULL) %>%  
           helper(type = "inline", size = "m", fade = TRUE, 
                 title = "Gene expression to colour cells by", 
                 content = c("Select gene to colour cells by gene expression", 
                             paste0("- Gene expression are coloured in a ", 
                                   "White-Red colour scheme which can be ", 
                                   "changed in the plot controls"))), 
-        selectInput("sc1b2inp2", "Gene 2:", choices=NULL) %>% 
+        selectInput(ns("sc1b2inp2"), "Gene 2:", choices=NULL) %>% 
           helper(type = "inline", size = "m", fade = TRUE, 
                   title = "Gene expression to colour cells by", 
                   content = c("Select gene to colour cells by gene expression", 
                               paste0("- Gene expression are coloured in a ", 
                                     "White-Blue colour scheme which can be ", 
                                     "changed in the plot controls"))), 
-        actionButton("sc1b2tog1", "Toggle plot controls"), 
+        actionButton(ns("sc1b2tog1"), "Customize plot"), 
         conditionalPanel( 
-          condition = "input.sc1b2tog1 % 2 == 1", 
-          radioButtons("sc1b2col1", "Colour:", 
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1b2tog1")),
+          radioButtons(ns("sc1b2col1"), "Colour:", 
                         choices = c("Red (Gene1); Blue (Gene2)", 
                                     "Orange (Gene1); Blue (Gene2)", 
                                     "Red (Gene1); Green (Gene2)", 
                                     "Green (Gene1); Blue (Gene2)"), 
                         selected = "Red (Gene1); Blue (Gene2)"), 
-          radioButtons("sc1b2ord1", "Plot order:", 
+          radioButtons(ns("sc1b2ord1"), "Plot order:", 
                         choices = c("Max-1st", "Min-1st", "Original", "Random"), 
                         selected = "Max-1st", inline = TRUE) 
         ) 
       ), # End of column (6 space) 
       column( 
         6, style="border-right: 2px solid black", 
-        uiOutput("sc1b2oup1.ui"), 
-        downloadButton("sc1b2oup1.pdf", "Download PDF"), 
-        downloadButton("sc1b2oup1.png", "Download PNG"), br(), 
+        uiOutput(ns("sc1b2oup1.ui")), 
+        downloadButton(ns("sc1b2oup1.pdf"), "Download PDF"), 
+        downloadButton(ns("sc1b2oup1.png"), "Download PNG"), br(), 
         div(style="display:inline-block", 
-            numericInput("sc1b2oup1.h", "PDF / PNG height:", width = "138px", 
+            numericInput(ns("sc1b2oup1.h"), "PDF / PNG height:", width = "138px", 
                           min = 4, max = 20, value = 8, step = 0.5)), 
         div(style="display:inline-block", 
             numericInput("sc1b2oup1.w", "PDF / PNG width:", width = "138px", 
                           min = 4, max = 20, value = 10, step = 0.5)) 
       ), # End of column (6 space) 
       column( 
-        3, uiOutput("sc1b2oup2.ui"), 
-        downloadButton("sc1b2oup2.pdf", "Download PDF"), 
-        downloadButton("sc1b2oup2.png", "Download PNG"), 
+        3, uiOutput(ns("sc1b2oup2.ui")), 
+        downloadButton(ns("sc1b2oup2.pdf"), "Download PDF"), 
+        downloadButton(ns("sc1b2oup2.png"), "Download PNG"), 
         br(), h4("Cell numbers"), 
-        dataTableOutput("sc1b2.dt") 
+        dataTableOutput(ns("sc1b2.dt"))
       )  # End of column (6 space) 
     )    # End of fluidRow (4 space) 
   )
@@ -267,7 +272,37 @@ scDRcoex_ui <- function(id, sc1conf, sc1def){
 
 ##################################################### Server #########################################################
 
-scDRcoex_server <- function(id, sc1conf, sc1def) {
+scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
+    moduleServer(id, function(input, output, session) {
+      
+      ns <- session$ns
+      
+      ### For all tags and Server-side selectize 
+      observe_helpers() 
+      optCrt="{ option_create: function(data,escape) {return('<div class=\"create\"><strong>' + '</strong></div>');} }" 
+      updateSelectizeInput(session, "sc1a1inp2", choices = names(sc1gene), server = TRUE, 
+                           selected = sc1def$gene1, options = list( 
+                             maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+      updateSelectizeInput(session, "sc1a3inp1", choices = names(sc1gene), server = TRUE, 
+                           selected = sc1def$gene1, options = list( 
+                             maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+      updateSelectizeInput(session, "sc1a3inp2", choices = names(sc1gene), server = TRUE, 
+                           selected = sc1def$gene2, options = list( 
+                             maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+      updateSelectizeInput(session, "sc1b2inp1", choices = names(sc1gene), server = TRUE, 
+                           selected = sc1def$gene1, options = list( 
+                             maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+      updateSelectizeInput(session, "sc1b2inp2", choices = names(sc1gene), server = TRUE, 
+                           selected = sc1def$gene2, options = list( 
+                             maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+      updateSelectizeInput(session, "sc1c1inp2", server = TRUE, 
+                           choices = c(sc1conf[is.na(fID)]$UI,names(sc1gene)), 
+                           selected = sc1conf[is.na(fID)]$UI[1], options = list( 
+                             maxOptions = length(sc1conf[is.na(fID)]$UI) + 3, 
+                             create = TRUE, persist = TRUE, render = I(optCrt))) 
+      
+      
+  
   ### Plots for tab b2 
   output$sc1b2sub1.ui <- renderUI({ 
     sub = strsplit(sc1conf[UI == input$sc1b2sub1]$fID, "\\|")[[1]] 
@@ -288,12 +323,12 @@ scDRcoex_server <- function(id, sc1conf, sc1def) {
   output$sc1b2oup1 <- renderPlot({ 
     scDRcoex(sc1conf, sc1meta, input$sc1b2drX, input$sc1b2drY,   
              input$sc1b2inp1, input$sc1b2inp2, input$sc1b2sub1, input$sc1b2sub2, 
-             paste0(dir_inputs,"sc1gexpr.h5"), sc1gene, 
+             file.path(dir_inputs,"sc1gexpr.h5"), sc1gene, 
              input$sc1b2siz, input$sc1b2col1, input$sc1b2ord1, 
              input$sc1b2fsz, input$sc1b2asp, input$sc1b2txt) 
   }) 
   output$sc1b2oup1.ui <- renderUI({ 
-    plotOutput("sc1b2oup1", height = pList2[input$sc1b2psz]) 
+    plotOutput(ns("sc1b2oup1"), height = pList2[input$sc1b2psz]) 
   }) 
   output$sc1b2oup1.pdf <- downloadHandler( 
     filename = function() { paste0("sc1",input$sc1b2drX,"_",input$sc1b2drY,"_",  
@@ -302,7 +337,7 @@ scDRcoex_server <- function(id, sc1conf, sc1def) {
       file, device = "pdf", height = input$sc1b2oup1.h, width = input$sc1b2oup1.w, useDingbats = FALSE, 
       plot = scDRcoex(sc1conf, sc1meta, input$sc1b2drX, input$sc1b2drY,  
                       input$sc1b2inp1, input$sc1b2inp2, input$sc1b2sub1, input$sc1b2sub2, 
-                      paste0(dir_inputs,"sc1gexpr.h5"), sc1gene, 
+                      file.path(dir_inputs,"sc1gexpr.h5"), sc1gene, 
                       input$sc1b2siz, input$sc1b2col1, input$sc1b2ord1, 
                       input$sc1b2fsz, input$sc1b2asp, input$sc1b2txt) ) 
   }) 
@@ -313,7 +348,7 @@ scDRcoex_server <- function(id, sc1conf, sc1def) {
       file, device = "png", height = input$sc1b2oup1.h, width = input$sc1b2oup1.w, 
       plot = scDRcoex(sc1conf, sc1meta, input$sc1b2drX, input$sc1b2drY,  
                       input$sc1b2inp1, input$sc1b2inp2, input$sc1b2sub1, input$sc1b2sub2, 
-                      paste0(dir_inputs,"sc1gexpr.h5"), sc1gene, 
+                      file.path(dir_inputs,"sc1gexpr.h5"), sc1gene, 
                       input$sc1b2siz, input$sc1b2col1, input$sc1b2ord1, 
                       input$sc1b2fsz, input$sc1b2asp, input$sc1b2txt) ) 
   }) 
@@ -321,7 +356,7 @@ scDRcoex_server <- function(id, sc1conf, sc1def) {
     scDRcoexLeg(input$sc1b2inp1, input$sc1b2inp2, input$sc1b2col1, input$sc1b2fsz) 
   }) 
   output$sc1b2oup2.ui <- renderUI({ 
-    plotOutput("sc1b2oup2", height = "300px") 
+    plotOutput(ns("sc1b2oup2"), height = "300px") 
   }) 
   output$sc1b2oup2.pdf <- downloadHandler( 
     filename = function() { paste0("sc1",input$sc1b2drX,"_",input$sc1b2drY,"_",  
@@ -339,11 +374,23 @@ scDRcoex_server <- function(id, sc1conf, sc1def) {
   }) 
   output$sc1b2.dt <- renderDataTable({ 
     ggData = scDRcoexNum(sc1conf, sc1meta, input$sc1b2inp1, input$sc1b2inp2, 
-                         input$sc1b2sub1, input$sc1b2sub2, paste0(dir_inputs,"sc1gexpr.h5"), sc1gene) 
+                         input$sc1b2sub1, input$sc1b2sub2, file.path(dir_inputs,"sc1gexpr.h5"), sc1gene) 
     datatable(ggData, rownames = FALSE, extensions = "Buttons", 
               options = list(pageLength = -1, dom = "tB", buttons = c("copy", "csv", "excel"))) %>% 
       formatRound(columns = c("percent"), digits = 2) 
   }) 
 
+    })
 }
+
+############################################### Registration #################################################
+
+register_tab(
+  id     = "genecoex",
+  title  = "Gene Coexpression",
+  ui     = scDRcoex_ui,
+  server = scDRcoex_server
+)
+
+
   

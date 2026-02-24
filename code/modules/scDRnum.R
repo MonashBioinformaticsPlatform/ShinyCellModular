@@ -192,7 +192,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
       
       column(
         3,
-        actionButton(ns("sc1a1togL"), "Toggle to subset cells"),
+        actionButton(ns("sc1a1togL"), "Filter Cells"),
         conditionalPanel(
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1togL")),
           selectInput(
@@ -209,7 +209,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
       
       column(
         6,
-        actionButton(ns("sc1a1tog0"), "Toggle graphics controls"),
+        actionButton(ns("sc1a1tog0"), "Customize plot"),
         conditionalPanel(
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1tog0")),
           fluidRow(
@@ -257,7 +257,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
           ),
           column(
             6,
-            actionButton(ns("sc1a1tog1"), "Toggle plot controls"),
+            actionButton(ns("sc1a1tog1"), "Customize plot"),
             conditionalPanel(
               condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1tog1")),
               radioButtons(ns("sc1a1col1"), "Colour (Continuous data):",
@@ -318,7 +318,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
           ),
           column(
             6,
-            actionButton(ns("sc1a1tog2"), "Toggle plot controls"),
+            actionButton(ns("sc1a1tog2"), "Customize plot"),
             conditionalPanel(
               condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1tog2")),
               radioButtons(ns("sc1a1col2"), "Colour:",
@@ -393,7 +393,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
 
 ############################################### Server #################################################
 
-scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
+scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
   moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
@@ -404,6 +404,23 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
     updateSelectizeInput(session, "sc1a1inp2", choices = names(sc1gene), server = TRUE, 
                          selected = sc1def$gene1, options = list( 
                            maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1a3inp1", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene1, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1a3inp2", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene2, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1b2inp1", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene1, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1b2inp2", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene2, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1c1inp2", server = TRUE, 
+                         choices = c(sc1conf[is.na(fID)]$UI,names(sc1gene)), 
+                         selected = sc1conf[is.na(fID)]$UI[1], options = list( 
+                           maxOptions = length(sc1conf[is.na(fID)]$UI) + 3, 
+                           create = TRUE, persist = TRUE, render = I(optCrt))) 
     
     
     # Needed for plot sizes (ShinyCell defaults)
@@ -651,7 +668,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
               dplyr::select(feature, group, logFC, padj) |>
               dplyr::collect()
             
-            validate(need(all(c("padj", "logFC", "group") %in% names(df)),
+            shiny::validate(need(all(c("padj", "logFC", "group") %in% names(df)),
                           "Expected columns not found. Check your parquet columns (padj, logFC, group)."))
             
             df <- df |>
@@ -667,7 +684,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
               dplyr::select(feature, group, auc, pct_in, pct_out) |>
               dplyr::collect()
             
-            validate(need(all(c("auc", "group") %in% names(df)),
+            shiny::validate(need(all(c("auc", "group") %in% names(df)),
                           "Expected columns not found. Check your parquet columns (auc, group)."))
             
             df <- df |>
@@ -682,7 +699,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
               dplyr::select(feature, group, avgExpr, pct_in, pct_out) |>
               dplyr::collect()
             
-            validate(need(all(c("avgExpr", "group") %in% names(df)),
+            shiny::validate(need(all(c("avgExpr", "group") %in% names(df)),
                           "Expected columns not found. Check your parquet columns (avgExpr, group)."))
             
             df <- df |>
@@ -697,7 +714,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
               dplyr::select(feature, group, pct_in, pct_out) |>
               dplyr::collect()
             
-            validate(need(all(c("pct_in", "group") %in% names(df)),
+            shiny::validate(need(all(c("pct_in", "group") %in% names(df)),
                           "Expected columns not found. Check your parquet columns (pct_in, group)."))
             
             df <- df |>
@@ -706,10 +723,10 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
               dplyr::slice_head(n = top_gene)
             
           } else {
-            validate(need(FALSE, paste0("Unknown ranking option: ", rank_by_selection)))
+            shiny::validate(need(FALSE, paste0("Unknown ranking option: ", rank_by_selection)))
           }
           
-          validate(need(!is.null(df) && nrow(df) > 0, "No rows after filtering. Try a different resolution or relax filters."))
+          shiny::validate(need(!is.null(df) && nrow(df) > 0, "No rows after filtering. Try a different resolution or relax filters."))
           
           DT::datatable(
             df,

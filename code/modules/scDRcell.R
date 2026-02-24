@@ -1,5 +1,5 @@
 # CellInfo vs CellInfo
-# This tab is base in the orginal "cellinfo_geneexpr" in ShinyCell
+# This tab is base in the orginal "cellinfo_cellinfo" in ShinyCell
 # id     = "cellinfo_cellInfo",
 # title  = "CellInfo vs CellInfo",
 ########################################## Function ########################################################
@@ -36,7 +36,7 @@ scDRcell <- function(inpConf, inpMeta, inpdrX, inpdrY, inp1, inpsub1, inpsub2,
     ggData$val = factor(ggData$val, levels = ggLvl) 
     ggCol = ggCol[ggLvl] 
   } 
- 
+  
   # Actual ggplot 
   ggOut = ggplot(ggData, aes(X, Y, color = val)) 
   if(bgCells){ 
@@ -90,15 +90,15 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
         fluidRow( 
           column( 
             12, selectInput(ns("sc1a2drX"), "X-axis:", choices = sc1conf[dimred == TRUE]$UI, 
-                           selected = sc1def$dimred[1]), 
+                            selected = sc1def$dimred[1]), 
             selectInput(ns("sc1a2drY"), "Y-axis:", choices = sc1conf[dimred == TRUE]$UI, 
                         selected = sc1def$dimred[2])) 
         ) 
       ), # End of column (6 space) 
       column( 
-        3, actionButton(ns("sc1a2togL"), "Toggle to subset cells"), 
+        3, actionButton(ns("sc1a2togL"), "Filter cells"), 
         conditionalPanel( 
-          condition = "input.sc1a2togL % 2 == 1", 
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2togL")),
           selectInput(ns("sc1a2sub1"), "Cell information to subset:", 
                       choices = sc1conf[grp == TRUE]$UI, 
                       selected = sc1def$grp1), 
@@ -108,9 +108,9 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
         ) 
       ), # End of column (6 space) 
       column( 
-        6, actionButton(ns("sc1a2tog0"), "Toggle graphics controls"), 
+        6, actionButton(ns("sc1a2tog0"), "Customize plot"), 
         conditionalPanel( 
-          condition = "input.sc1a2tog0 % 2 == 1", 
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog0")) ,
           fluidRow( 
             column( 
               6, sliderInput(ns("sc1a2siz"), "Point size:", 
@@ -149,9 +149,9 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
                                         "changed in the plot controls"))) 
           ), 
           column( 
-            6, actionButton(ns("sc1a2tog1"), "Toggle plot controls"), 
+            6, actionButton(ns("sc1a2tog1"), "Customize plot"), 
             conditionalPanel( 
-              condition = "input.sc1a2tog1 % 2 == 1", 
+              condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog1")) ,
               radioButtons(ns("sc1a2col1"), "Colour (Continuous data):", 
                            choices = c("White-Red", "Blue-Yellow-Red", 
                                        "Yellow-Green-Purple"), 
@@ -163,14 +163,14 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
             ) 
           ) 
         ), 
-        fluidRow(column(12, uiOutput("sc1a2oup1.ui"))), 
-        downloadButton("sc1a2oup1.pdf", "Download PDF"), 
-        downloadButton("sc1a2oup1.png", "Download PNG"), br(), 
+        fluidRow(column(12, uiOutput(ns("sc1a2oup1.ui")))), 
+        downloadButton(ns("sc1a2oup1.pdf"), "Download PDF"), 
+        downloadButton(ns("sc1a2oup1.png"), "Download PNG"), br(), 
         div(style="display:inline-block", 
-            numericInput("sc1a2oup1.h", "PDF / PNG height:", width = "138px", 
+            numericInput(ns("sc1a2oup1.h"), "PDF / PNG height:", width = "138px", 
                          min = 4, max = 20, value = 6, step = 0.5)), 
         div(style="display:inline-block", 
-            numericInput("sc1a2oup1.w", "PDF / PNG width:", width = "138px", 
+            numericInput(ns("sc1a2oup1.w"), "PDF / PNG width:", width = "138px", 
                          min = 4, max = 20, value = 8, step = 0.5)) 
       ), # End of column (6 space) 
       column( 
@@ -189,9 +189,9 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
                                         "changed in the plot controls"))) 
           ), 
           column( 
-            6, actionButton(ns("sc1a2tog2"), "Toggle plot controls"), 
+            6, actionButton(ns("sc1a2tog2"), "Customize plot"), 
             conditionalPanel( 
-              condition = "input.sc1a2tog2 % 2 == 1", 
+              condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog2")), 
               radioButtons(ns("sc1a2col2"), "Colour (Continuous data):", 
                            choices = c("White-Red", "Blue-Yellow-Red", 
                                        "Yellow-Green-Purple"), 
@@ -203,103 +203,130 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
             ) 
           ) 
         ), 
-        fluidRow(column(12, uiOutput("sc1a2oup2.ui"))), 
-        downloadButton("sc1a2oup2.pdf", "Download PDF"), 
-        downloadButton("sc1a2oup2.png", "Download PNG"), br(), 
-        div(style="display:inline-block", 
-            numericInput("sc1a2oup2.h", "PDF / PNG height:", width = "138px", 
-                         min = 4, max = 20, value = 6, step = 0.5)), 
-        div(style="display:inline-block", 
-            numericInput("sc1a2oup2.w", "PDF / PNG width:", width = "138px", 
-                         min = 4, max = 20, value = 8, step = 0.5)) 
+        fluidRow(column(12, uiOutput(ns("sc1a2oup2.ui"))), 
+                 downloadButton(ns("sc1a2oup2.pdf"), "Download PDF"), 
+                 downloadButton(ns("sc1a2oup2.png"), "Download PNG"), br(), 
+                 div(style="display:inline-block", 
+                     numericInput(ns("sc1a2oup2.h"), "PDF / PNG height:", width = "138px", 
+                                  min = 4, max = 20, value = 6, step = 0.5)), 
+                 div(style="display:inline-block", 
+                     numericInput(ns("sc1a2oup2.w"), "PDF / PNG width:", width = "138px", 
+                                  min = 4, max = 20, value = 8, step = 0.5)) 
+        )
       )  # End of column (6 space) 
     )    # End of fluidRow (4 space) 
   )
 }
 ########################################## server ########################################################
 
-scDRcell_server <- function(id, sc1conf, sc1meta, sc1gene, dir_inputs) {
+scDRcell_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
   moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
     
-  ### Plots for tab a2 
-  output$sc1a2sub1.ui <- renderUI({ 
-    sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
-    checkboxGroupInput("sc1a2sub2", "Select which cells to show", inline = TRUE, 
-                       choices = sub, selected = sub) 
-  }) 
-  observeEvent(input$sc1a2sub1non, { 
-    sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
-    updateCheckboxGroupInput(session, inputId = "sc1a2sub2", label = "Select which cells to show", 
-                             choices = sub, selected = NULL, inline = TRUE) 
-  }) 
-  observeEvent(input$sc1a2sub1all, { 
-    sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
-    updateCheckboxGroupInput(session, inputId = "sc1a2sub2", label = "Select which cells to show", 
-                             choices = sub, selected = sub, inline = TRUE) 
-  }) 
-  output$sc1a2oup1 <- renderPlot({ 
-    scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp1,  
-             input$sc1a2sub1, input$sc1a2sub2, 
-             input$sc1a2siz, input$sc1a2col1, input$sc1a2ord1, 
-             input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab1) 
-  }) 
-  output$sc1a2oup1.ui <- renderUI({ 
-    plotOutput("sc1a2oup1", height = pList[input$sc1a2psz]) 
-  }) 
-  output$sc1a2oup1.pdf <- downloadHandler( 
-    filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
-                                   input$sc1a2inp1,".pdf") }, 
-    content = function(file) { ggsave( 
-      file, device = "pdf", height = input$sc1a2oup1.h, width = input$sc1a2oup1.w, useDingbats = FALSE, 
-      plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp1,   
-                      input$sc1a2sub1, input$sc1a2sub2, 
-                      input$sc1a2siz, input$sc1a2col1, input$sc1a2ord1,  
-                      input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab1) ) 
-  }) 
-  output$sc1a2oup1.png <- downloadHandler( 
-    filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
-                                   input$sc1a2inp1,".png") }, 
-    content = function(file) { ggsave( 
-      file, device = "png", height = input$sc1a2oup1.h, width = input$sc1a2oup1.w, 
-      plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp1,   
-                      input$sc1a2sub1, input$sc1a2sub2, 
-                      input$sc1a2siz, input$sc1a2col1, input$sc1a2ord1,  
-                      input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab1) ) 
-  }) 
-   
-  output$sc1a2oup2 <- renderPlot({ 
-    scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp2,  
-             input$sc1a2sub1, input$sc1a2sub2, 
-             input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2, 
-             input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) 
-  }) 
-  output$sc1a2oup2.ui <- renderUI({ 
-    plotOutput("sc1a2oup2", height = pList[input$sc1a2psz]) 
-  }) 
-  output$sc1a2oup2.pdf <- downloadHandler( 
-    filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
-                                   input$sc1a2inp2,".pdf") }, 
-    content = function(file) { ggsave( 
-      file, device = "pdf", height = input$sc1a2oup2.h, width = input$sc1a2oup2.w, useDingbats = FALSE, 
-      plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp2,   
-                      input$sc1a2sub1, input$sc1a2sub2, 
-                      input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2,  
-                      input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) ) 
-  }) 
-  output$sc1a2oup2.png <- downloadHandler( 
-    filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
-                                   input$sc1a2inp2,".png") }, 
-    content = function(file) { ggsave( 
-      file, device = "png", height = input$sc1a2oup2.h, width = input$sc1a2oup2.w, 
-      plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp2,   
-                      input$sc1a2sub1, input$sc1a2sub2, 
-                      input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2,  
-                      input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) ) 
-  }) 
- }
- )
+    ### For all tags and Server-side selectize 
+    observe_helpers() 
+    optCrt="{ option_create: function(data,escape) {return('<div class=\"create\"><strong>' + '</strong></div>');} }" 
+    updateSelectizeInput(session, "sc1a1inp2", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene1, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1a3inp1", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene1, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1a3inp2", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene2, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1b2inp1", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene1, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1b2inp2", choices = names(sc1gene), server = TRUE, 
+                         selected = sc1def$gene2, options = list( 
+                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    updateSelectizeInput(session, "sc1c1inp2", server = TRUE, 
+                         choices = c(sc1conf[is.na(fID)]$UI,names(sc1gene)), 
+                         selected = sc1conf[is.na(fID)]$UI[1], options = list( 
+                           maxOptions = length(sc1conf[is.na(fID)]$UI) + 3, 
+                           create = TRUE, persist = TRUE, render = I(optCrt))) 
+    
+    
+    
+    ### Plots for tab a2 
+    output$sc1a2sub1.ui <- renderUI({ 
+      sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
+      checkboxGroupInput(ns("sc1a2sub2"), "Select which cells to show", inline = TRUE, 
+                         choices = sub, selected = sub) 
+    }) 
+    observeEvent(input$sc1a2sub1non, { 
+      sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
+      updateCheckboxGroupInput(session, inputId = "sc1a2sub2", label = "Select which cells to show", 
+                               choices = sub, selected = NULL, inline = TRUE) 
+    }) 
+    observeEvent(input$sc1a2sub1all, { 
+      sub = strsplit(sc1conf[UI == input$sc1a2sub1]$fID, "\\|")[[1]] 
+      updateCheckboxGroupInput(session, inputId = "sc1a2sub2", label = "Select which cells to show", 
+                               choices = sub, selected = sub, inline = TRUE) 
+    }) 
+    output$sc1a2oup1 <- renderPlot({ 
+      scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp1,  
+               input$sc1a2sub1, input$sc1a2sub2, 
+               input$sc1a2siz, input$sc1a2col1, input$sc1a2ord1, 
+               input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab1) 
+    }) 
+    output$sc1a2oup1.ui <- renderUI({ 
+      plotOutput(ns("sc1a2oup1"), height = pList[input$sc1a2psz]) 
+    }) 
+    output$sc1a2oup1.pdf <- downloadHandler( 
+      filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
+                                     input$sc1a2inp1,".pdf") }, 
+      content = function(file) { ggsave( 
+        file, device = "pdf", height = input$sc1a2oup1.h, width = input$sc1a2oup1.w, useDingbats = FALSE, 
+        plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp1,   
+                        input$sc1a2sub1, input$sc1a2sub2, 
+                        input$sc1a2siz, input$sc1a2col1, input$sc1a2ord1,  
+                        input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab1) ) 
+      }) 
+    output$sc1a2oup1.png <- downloadHandler( 
+      filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
+                                     input$sc1a2inp1,".png") }, 
+      content = function(file) { ggsave( 
+        file, device = "png", height = input$sc1a2oup1.h, width = input$sc1a2oup1.w, 
+        plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp1,   
+                        input$sc1a2sub1, input$sc1a2sub2, 
+                        input$sc1a2siz, input$sc1a2col1, input$sc1a2ord1,  
+                        input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab1) ) 
+      }) 
+    
+    output$sc1a2oup2 <- renderPlot({ 
+      scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp2,  
+               input$sc1a2sub1, input$sc1a2sub2, 
+               input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2, 
+               input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) 
+    }) 
+    output$sc1a2oup2.ui <- renderUI({ 
+      plotOutput(ns("sc1a2oup2"), height = pList[input$sc1a2psz]) 
+    }) 
+    output$sc1a2oup2.pdf <- downloadHandler( 
+      filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
+                                     input$sc1a2inp2,".pdf") }, 
+      content = function(file) { ggsave( 
+        file, device = "pdf", height = input$sc1a2oup2.h, width = input$sc1a2oup2.w, useDingbats = FALSE, 
+        plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp2,   
+                        input$sc1a2sub1, input$sc1a2sub2, 
+                        input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2,  
+                        input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) ) 
+      }) 
+    output$sc1a2oup2.png <- downloadHandler( 
+      filename = function() { paste0("sc1",input$sc1a2drX,"_",input$sc1a2drY,"_",  
+                                     input$sc1a2inp2,".png") }, 
+      content = function(file) { ggsave( 
+        file, device = "png", height = input$sc1a2oup2.h, width = input$sc1a2oup2.w, 
+        plot = scDRcell(sc1conf, sc1meta, input$sc1a2drX, input$sc1a2drY, input$sc1a2inp2,   
+                        input$sc1a2sub1, input$sc1a2sub2, 
+                        input$sc1a2siz, input$sc1a2col2, input$sc1a2ord2,  
+                        input$sc1a2fsz, input$sc1a2asp, input$sc1a2txt, input$sc1a2lab2) ) 
+      }) 
+  }
+  )
 }
 
 

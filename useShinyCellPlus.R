@@ -151,6 +151,10 @@ library(rsconnect)
 library(shinythemes)
 library(shinydashboard)
 library(tidyverse)
+library(sortable)
+library(plotly)
+library(FlexDotPlot)
+
 
 
 ### Useful stuff 
@@ -346,8 +350,9 @@ ui <- fluidPage( theme = shinytheme("cerulean"),
       tags$p(
         style = "font-size: 90%%; color: #666;",
         em(
-          "This application was generated using ShinyCellPlus. Monash Genomics and Bioinformatics Platform",
-          "Tabs are dynamically loaded from modular components.ShinyCellPlus: ShinyCell Package Customized by MGBP v.1 Date: Jan 2026"
+          "This application was generated using ShinyCellPlus. ",
+          "Tabs are dynamically loaded from modular components.",
+          "Monash Genomics and Bioinformatics Platform. ShinyCellPlus: ShinyCell Package Customized by MGBP v.1 Date: Jan 2026"
         )
       ),
       br(), br(), br(), br(), br()

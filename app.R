@@ -17,18 +17,14 @@ library(rsconnect)
 
 ########################################### Load files ###########################################
 
-dir_inputs <- "/mnt/ceph/mbp/servers/bioinformatics-platform/home/lper0012/tasks/liam.kealy/processing/ShinyCell_Integration/"
+dir_inputs <- "<FULL_PATH_WILL_BE_INJECTED_HERE>/"
 
 sc1conf <- readRDS(file.path(dir_inputs, "sc1conf.rds"))
 sc1def  <- readRDS(file.path(dir_inputs, "sc1def.rds"))
 sc1gene <- readRDS(file.path(dir_inputs, "sc1gene.rds"))
 sc1meta <- readRDS(file.path(dir_inputs, "sc1meta.rds"))
 
-markers_list      <- read_parquet(file.path(dir_inputs, "markers_list_integration_subreso.parquet"))
-markers_list_roc  <- read_parquet(file.path(dir_inputs, "markers_list_integration_subreso_ROC_RNA.ATAC.parquet"))
-
-assays <- c("RNA", "ATAC")
-
+markers_list      <- read_parquet(file.path(dir_inputs, "markergenes_lists.parquet"))
 
 ########################################### Style and helpers ###########################################
 
@@ -77,10 +73,43 @@ sctheme <- function(base_size = 24, XYval = TRUE, Xang = 0, XjusH = 0.5) {
 
 
 
-########################################### Modules and registry ###########################################
+########################################### Registry in memory ###########################################
 
-for (f in list.files("code/modules", full.names = TRUE)) source(f)
-source("code/registry.R")
+tab_registry <- list()
+
+register_tab <- function(id, title, ui, server) {
+  tab_registry[[id]] <<- list(
+    title  = title,
+    ui     = ui,
+    server = server
+  )
+}
+
+get_tab_ids <- function(enabled_tabs = NULL) {
+  all_ids <- names(tab_registry)
+  if (is.null(enabled_tabs) || length(enabled_tabs) == 0) {
+    all_ids
+  } else {
+    intersect(enabled_tabs, all_ids)
+  }
+}
+
+
+################################################ Modules ############################################################
+
+## modules directory lives inside this app folder
+modules_dir <- file.path(getwd(), "code", "modules")
+for (f in list.files(modules_dir, full.names = TRUE)) {
+  source(f, local = TRUE)
+}
+
+########################################### Choose which tabs to show ###################################
+
+## default: all registered modules
+enabled_tabs <- NULL   ## or eg c("cellinfo_geneexpr", "umap", "viobox")
+
+tab_ids <- get_tab_ids(enabled_tabs)
+
 
 enabled_tabs <- c("umap", "viobox")  # keys in tab_registry
 
@@ -160,3 +189,8 @@ server <- function(input, output, session) {
 
 ########################################### Run app ###########################################
 shinyApp(ui, server)
+
+
+
+
+
