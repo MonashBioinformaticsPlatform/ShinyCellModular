@@ -2,7 +2,7 @@ prepShinyCellPlus <- function(
     seurat_obj = NULL,
     seurat_rds = NULL,
     out_dir = "Files_ShinyCell",
-    shiny_title = "ShinyCellPlus",
+    shiny_title = "ShinyCellPlus Intermediate",
     assay_rna = "RNA",
     ident_col = NULL,
     do_variable_features = TRUE,
@@ -43,7 +43,7 @@ prepShinyCellPlus <- function(
     "sortable", "plotly", "FlexDotPlot", "RColorBrewer", "ggforce"
   )
   
-  bioc_pkgs <- c("EnhancedVolcano", "limma", "edgeR")
+  bioc_pkgs <- c("limma", "edgeR")
   
   core_cran <- c("Seurat", "ShinyCell")
   cran_pkgs <- unique(c(cran_pkgs, core_cran))
@@ -234,21 +234,18 @@ prepShinyCellPlus <- function(
       if (file.exists(counts_h5_file)) file.remove(counts_h5_file)
       
       h5 <- hdf5r::H5File$new(counts_h5_file, mode = "w")
-      on.exit(try(h5$close_all(), silent = TRUE), add = TRUE)
-      
       grp <- h5$create_group("counts")
       
       grp$create_dataset("i", robj = i, dtype = hdf5r::h5types$H5T_STD_I32LE, gzip_level = 4)
       grp$create_dataset("p", robj = p, dtype = hdf5r::h5types$H5T_STD_I32LE, gzip_level = 4)
       grp$create_dataset("x", robj = x, gzip_level = 4)
-      
-      grp$create_dataset("dims", robj = as.integer(dims), dtype = hdf5r::h5types$H5T_STD_I32LE)
+      grp$create_dataset("dims",  robj = as.integer(dims), dtype = hdf5r::h5types$H5T_STD_I32LE)
       grp$create_dataset("genes", robj = genes)
       grp$create_dataset("cells", robj = cells)
       
-      h5$attr_open("format")$write("dgCMatrix_CSC_v1")
-      h5$attr_open("assay")$write(assay_rna)
-      h5$attr_open("layer")$write(counts_layer)
+      h5$create_attr("format", "dgCMatrix_CSC_v1")
+      h5$create_attr("assay", assay_rna)
+      h5$create_attr("layer", counts_layer)
       
       h5$close_all()
       .msg("Counts H5 written OK")

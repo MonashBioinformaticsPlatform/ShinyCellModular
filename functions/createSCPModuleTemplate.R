@@ -1,39 +1,20 @@
-#' Scaffold a new ShinyCell style module script
-#'
-#' Creates a minimal self contained module file with:
-#' Functions block, UI block, Server block, Registration block.
-#'
-#' It also:
-#' 1 checks existing module scripts in module_dir for ID conflicts
-#' 2 picks the next available sc1a or sc1b or sc1c prefix number so namespaces are unique
-#' 3 prevents filename conflicts
-#'
-#' Assumptions based on your module style
-#' register_tab(id=..., title=..., ui=..., server=...)
-#' UI input ids use ns("sc1xN...")
-#' Server includes observe_helpers() and local fallbacks for pList pList2 pList3
-#'
-#' @param module_dir folder containing your module .R scripts
-#' @param module_name base name for the file and functions, eg "scMyNewTab" (file will be scMyNewTab.R)
-#' @param tab_id register_tab id, eg "bubble_heatmap"
-#' @param tab_title register_tab title, eg "Bubble Plot"
-#' @param tab_header UI title shown in tabPanel, eg "Bubbleplot / Heatmap"
-#' @param prefix_group one of "a","b","c","d","e" to choose sc1a or sc1b etc
-#' @param overwrite allow overwriting an existing file with same name
-#' @return invisible list with file path and chosen prefix
-createSCPModuleTemplate <- function(module_dir,
-                             module_name,
-                             tab_id,
-                             tab_title,
-                             tab_header = tab_title,
-                             prefix_group = c("a","b","c","d","e"),
-                             overwrite = FALSE) {
+createSCPModuleTemplate <- function(
+    module_dir,
+    module_name,
+    tab_id,
+    tab_title,
+    tab_header = tab_title,
+    prefix_group = c("a","b","c","d","e"),
+    overwrite = FALSE
+) {
+  message("createSCPModuleTemplate called")
+  flush.console()
   
   prefix_group <- match.arg(prefix_group)
   if (!dir.exists(module_dir)) stop("module_dir does not exist: ", module_dir)
   
-  # list .R files
   r_files <- list.files(module_dir, pattern = "\\.R$", full.names = TRUE)
+  
   all_text <- character(0)
   if (length(r_files) > 0) {
     all_text <- vapply(
@@ -43,66 +24,86 @@ createSCPModuleTemplate <- function(module_dir,
     )
   }
   
-  # 1 check register_tab id conflict
+  ##########################################################################
+  # 1 Check register_tab id conflicts
+  ##########################################################################
+  
   existing_tab_ids <- character(0)
   if (length(all_text) > 0) {
-    m <- gregexpr("register_tab\\s*\\(.*?\\bid\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]", all_text, perl = TRUE)
+    pattern_id <- "register_tab\\s*\\(.*?\\bid\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]"
+    m <- gregexpr(pattern_id, all_text, perl = TRUE)
     hits <- regmatches(all_text, m)
+    
     if (length(hits) > 0) {
       existing_tab_ids <- unique(unlist(lapply(hits, function(x) {
-        if (length(x) == 0) return(character(0))
-        sub(".*\\bid\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"].*", "\\1", x)
+        if (!length(x)) return(character(0))
+        sub(pattern_id, "\\1", x, perl = TRUE)
       })))
       existing_tab_ids <- existing_tab_ids[nzchar(existing_tab_ids)]
     }
   }
+  
   if (tab_id %in% existing_tab_ids) {
     stop("tab_id conflicts with an existing register_tab id: ", tab_id)
   }
   
-  # 2 pick next available sc1 prefix number for the chosen group
-  # Search for any occurrence of sc1<group><number>
+  ##########################################################################
+  # 2 Pick next available sc1<group><number>
+  ##########################################################################
+  
   used_nums <- integer(0)
+  
   if (length(all_text) > 0) {
-    pattern <- paste0("\\bsc1", prefix_group, "(\\d+)")
+    # Match digits but ensure the next character is NOT another digit
+    # This correctly matches sc1a2inp1 and sc1a2_main
+    # and does NOT treat sc1a10 as sc1a1
+    pattern_sc <- paste0("\\bsc1", prefix_group, "([0-9]+)(?![0-9])")
+  
+
     for (txt in all_text) {
-      m <- gregexpr(pattern, txt, perl = TRUE)
-      hits <- regmatches(txt, m)[[1]]
+      m <- gregexpr(pattern_sc, txt, perl = TRUE)
+
+      hits <- sort(unique(regmatches(txt, m)[[1]]))
+      print("This are the matches from this modules")
+      print(hits)
+  
+      
       if (length(hits) > 0) {
-        nums <- suppressWarnings(as.integer(sub(pattern, "\\1", hits, perl = TRUE)))
+        nums <- suppressWarnings(as.integer(sub(pattern_sc, "\\1", hits, perl = TRUE)))
         used_nums <- c(used_nums, nums[!is.na(nums)])
+       
       }
     }
-    }
   }
+  
   used_nums <- unique(used_nums)
-  next_num <- if (length(used_nums) == 0) 1L else (max(used_nums) + 1L)
+  next_num <- if (!length(used_nums)) 1L else (max(used_nums) + 1L)
   
-  ns_prefix <- paste0("sc1", prefix_group, next_num)  # eg sc1d2
+  ns_prefix <- paste0("sc1", prefix_group, next_num)
   
-  # 3 prevent filename conflicts
+  ##########################################################################
+  # 3 Prevent filename conflicts
+  ##########################################################################
+  
   out_file <- file.path(module_dir, paste0(module_name, ".R"))
   if (file.exists(out_file) && !isTRUE(overwrite)) {
     stop("Output file already exists: ", out_file, "\nSet overwrite = TRUE if you want to overwrite it.")
   }
   
-  # function names follow your pattern: <module_name>_ui, <module_name>_server
-  ui_fun <- paste0(module_name, "_ui")
+  ui_fun  <- paste0(module_name, "_ui")
   srv_fun <- paste0(module_name, "_server")
   
-  # helper to build names like sc1d2inp1, sc1d2togL etc
-  id_inp1 <- paste0(ns_prefix, "inp1")
-  id_inp2 <- paste0(ns_prefix, "inp2")
-  id_togL <- paste0(ns_prefix, "togL")
-  id_sub1 <- paste0(ns_prefix, "sub1")
-  id_sub2 <- paste0(ns_prefix, "sub2")
-  id_oup  <- paste0(ns_prefix, "oup")
-  id_psz  <- paste0(ns_prefix, "psz")
-  id_fsz  <- paste0(ns_prefix, "fsz")
+  id_inp1  <- paste0(ns_prefix, "inp1")
+  id_inp2  <- paste0(ns_prefix, "inp2")
+  id_togL  <- paste0(ns_prefix, "togL")
+  id_sub1  <- paste0(ns_prefix, "sub1")
+  id_sub2  <- paste0(ns_prefix, "sub2")
+  id_oup   <- paste0(ns_prefix, "oup")
+  id_psz   <- paste0(ns_prefix, "psz")
+  id_fsz   <- paste0(ns_prefix, "fsz")
   id_oup_h <- paste0(id_oup, ".h")
   id_oup_w <- paste0(id_oup, ".w")
   
-  # minimal template that matches your module structure and makes it self contained
   template <- c(
     paste0("# id     = \"", tab_id, "\""),
     paste0("# title  = \"", tab_title, "\""),
@@ -110,9 +111,10 @@ createSCPModuleTemplate <- function(module_dir,
     "############################################### Functions ############################################",
     "",
     "# TODO implement your plot or table functions here",
-    paste0("sc", ns_prefix, "_main <- function(inpConf, inpMeta, ...) {"),
+    # FIX: do not prepend an extra 'sc'
+    paste0(ns_prefix, "_main <- function(inpConf, inpMeta, ...) {"),
     "  # return a ggplot object or a grob",
-    "  stop(\"Not implemented\")",
+    "  stop(\"This is the template tab. Please add some code in the function section\")",
     "}",
     "",
     "############################################### UI ####################################################",
@@ -170,15 +172,12 @@ createSCPModuleTemplate <- function(module_dir,
     "  moduleServer(id, function(input, output, session) {",
     "    ns <- session$ns",
     "",
-    "    # ShinyCell helper tags",
     "    observe_helpers()",
     "",
-    "    # Self contained fallbacks for plot sizes",
     "    if (!exists(\"pList2\", inherits = TRUE)) {",
     "      pList2 <<- c(Small = \"350px\", Medium = \"550px\", Large = \"750px\")",
     "    }",
     "",
-    "    # Filter UI",
     paste0("    output$", id_sub1, ".ui <- renderUI({"),
     paste0("      req(input$", id_sub1, ")"),
     paste0("      sub <- strsplit(sc1conf[UI == input$", id_sub1, "]$fID, \"\\\\|\")[[1]]"),
@@ -210,10 +209,10 @@ createSCPModuleTemplate <- function(module_dir,
     "      )",
     "    })",
     "",
-    "    # Plot",
     paste0("    output$", id_oup, " <- renderPlot({"),
     paste0("      req(input$", id_inp1, ", input$", id_inp2, ")"),
-    paste0("      sc", ns_prefix, "_main("),
+    # FIX: do not prepend extra 'sc'
+    paste0("      ", ns_prefix, "_main("),
     "        sc1conf, sc1meta,",
     paste0("        inp1 = input$", id_inp1, ","),
     paste0("        inp2 = input$", id_inp2, ","),
@@ -229,7 +228,6 @@ createSCPModuleTemplate <- function(module_dir,
     paste0("      plotOutput(ns(\"", id_oup, "\"), height = pList2[input$", id_psz, "])"),
     "    })",
     "",
-    "    # Downloads",
     paste0("    output$", id_oup, ".pdf <- downloadHandler("),
     "      filename = function() {",
     paste0("        paste0(\"", ns_prefix, "_\", input$", id_inp1, ", \"_\", input$", id_inp2, ", \".pdf\")"),
@@ -239,7 +237,7 @@ createSCPModuleTemplate <- function(module_dir,
     "          file, device = \"pdf\",",
     paste0("          height = input$", id_oup_h, ", width = input$", id_oup_w, ","),
     "          useDingbats = FALSE,",
-    paste0("          plot = sc", ns_prefix, "_main("),
+    paste0("          plot = ", ns_prefix, "_main("),
     "            sc1conf, sc1meta,",
     paste0("            inp1 = input$", id_inp1, ","),
     paste0("            inp2 = input$", id_inp2, ","),
@@ -260,7 +258,7 @@ createSCPModuleTemplate <- function(module_dir,
     "        ggsave(",
     "          file, device = \"png\",",
     paste0("          height = input$", id_oup_h, ", width = input$", id_oup_w, ","),
-    paste0("          plot = sc", ns_prefix, "_main("),
+    paste0("          plot = ", ns_prefix, "_main("),
     "            sc1conf, sc1meta,",
     paste0("            inp1 = input$", id_inp1, ","),
     paste0("            inp2 = input$", id_inp2, ","),
@@ -279,10 +277,10 @@ createSCPModuleTemplate <- function(module_dir,
     "############################################### Registration #################################################",
     "",
     "register_tab(",
-    paste0("  id     = \"", tab_id, "\","),
-    paste0("  title  = \"", tab_title, "\","),
-    paste0("  ui     = ", ui_fun, ","),
-    paste0("  server = ", srv_fun),
+    paste0("  id     = \"", tab_id, "\","), 
+    paste0("  title  = \"", tab_title, "\","), 
+    paste0("  ui     = ", ui_fun, ","), 
+    paste0("  server = ", srv_fun), 
     ")",
     ""
   )
@@ -293,6 +291,7 @@ createSCPModuleTemplate <- function(module_dir,
     file = out_file,
     prefix = ns_prefix,
     next_number = next_num,
-    group = prefix_group
+    group = prefix_group,
+    used_numbers = sort(used_nums)
   ))
 }

@@ -50,9 +50,9 @@ useShinyCellPlus <- function(
     
     default_tabs <- switch(
       data_type,
-      RNA      = c("cellinfo_geneexpr"),
-      RNA_ATAC = c("umap", "viobox", "cellinfo_geneexpr", "multiome_links", "peak_browser"),
-      SPATIAL  = c("umap", "viobox", "spatial_feature", "spatial_qc")
+      RNA      = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex","violin_boxplot","proportions","bubble_heatmap","pseudobulk"),
+      RNA_ATAC = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex","violin_boxplot","proportions","bubble_heatmap", "multiome_links", "peak_browser", "eregulons_graphs","pseudobulk_eregulons"),
+      SPATIAL  = c("spatial_qc", "spatial_feature")
     )
   }
   

@@ -3,3 +3,7 @@
 .RData
 .Ruserdata
 RProjShinyCellPlus
+renv/library/
+renv/python/
+.Rhistory
+.RData
