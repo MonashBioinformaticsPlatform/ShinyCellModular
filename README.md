@@ -397,7 +397,7 @@ library(edgeR)
 
 Modules in `code/modules` are ready to use. Modules under development live in `code/develop`.
 
-Use the helper `createSCPModuleTemplate()` to create a new module file in `code/modules`. The helper function scans existing modules and avoids clashes with existing `register_tab()` ids and `sc1*` prefixes. Hence it is *crutial* to run `createSCPModuleTemplate()` in `code/modules`. If needed, you can move the generated file to `code/develop` afterwards.
+Use the helper `createSCPModuleTemplate()` to create a new module file in `code/modules`. The helper function scans existing modules and avoids clashes with existing `register_tab()` ids and `sc1*` prefixes. Hence it is **crutial** to run `createSCPModuleTemplate()` in `code/modules`. If needed, you can move the generated file to `code/develop` afterwards.
 
 ```
 createSCPModuleTemplate(
@@ -414,10 +414,10 @@ The app loads modules automatically.
 
 If you want to create a module by hand, start by copying the relevant code from the original ShinyCell `ui.R` and `server.R`.
 
-1. Find the tab you want to replicate
+**1.** Find the tab you want to replicate
 Search for an existing prefix, for example sc1a1, and copy the corresponding UI and server blocks for that tab.
 
-2. In your new module file, keep the same structure
+ 2. In your new module file, keep the same structure
 Include the following sections in order
 
 - Function section
