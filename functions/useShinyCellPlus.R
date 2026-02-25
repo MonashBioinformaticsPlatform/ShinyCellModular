@@ -154,6 +154,11 @@ library(tidyverse)
 library(sortable)
 library(plotly)
 library(FlexDotPlot)
+library(RColorBrewer)
+library(ggforce)
+library(EnhancedVolcano) #BiocManager::install("EnhancedVolcano")
+library(limma) #BiocManager::install("limma")
+library(edgeR) #BiocManager::install("edgeR")
 
 
 

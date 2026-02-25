@@ -21,7 +21,7 @@
 #' @param prefix_group one of "a","b","c","d","e" to choose sc1a or sc1b etc
 #' @param overwrite allow overwriting an existing file with same name
 #' @return invisible list with file path and chosen prefix
-scScaffoldModule <- function(module_dir,
+createSCPModuleTemplate <- function(module_dir,
                              module_name,
                              tab_id,
                              tab_title,
@@ -64,14 +64,15 @@ scScaffoldModule <- function(module_dir,
   # Search for any occurrence of sc1<group><number>
   used_nums <- integer(0)
   if (length(all_text) > 0) {
-    pattern <- paste0("\\bsc1", prefix_group, "(\\d+)\\b")
+    pattern <- paste0("\\bsc1", prefix_group, "(\\d+)")
     for (txt in all_text) {
-      mm <- gregexpr(pattern, txt, perl = TRUE)
-      hits <- regmatches(txt, mm)[[1]]
+      m <- gregexpr(pattern, txt, perl = TRUE)
+      hits <- regmatches(txt, m)[[1]]
       if (length(hits) > 0) {
-        nums <- suppressWarnings(as.integer(sub(paste0("^sc1", prefix_group), "", hits)))
+        nums <- suppressWarnings(as.integer(sub(pattern, "\\1", hits, perl = TRUE)))
         used_nums <- c(used_nums, nums[!is.na(nums)])
       }
+    }
     }
   }
   used_nums <- unique(used_nums)

@@ -7,7 +7,6 @@ scGeneList <- function(inp, inpGene) {
     return(data.table::data.table(gene = character(0), present = logical(0)))
   }
   
-  # split on comma, semicolon, or newline (one or more)
   toks <- unlist(strsplit(inp, "[,;\\n\\r]+", perl = TRUE), use.names = FALSE)
   toks <- trimws(toks)
   toks <- toks[nzchar(toks)]
@@ -20,70 +19,80 @@ scGeneList <- function(inp, inpGene) {
   geneList[!gene %in% names(inpGene), present := FALSE]
   geneList[]
 }
+
+# Plot gene expression bubbleplot / heatmap
 scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
-                       inpsub1, inpsub2, inpH5, inpGene, inpScl, inpRow, inpCol,
+                       inpsub1, inpsub2, inpH5, inpGene,
+                       inpScl, inpRow, inpCol,
                        inpcols, inpfsz,
                        inpEngine = c("Classic ggplot", "FlexDotPlot"),
-                       save = FALSE){
+                       save = FALSE) {
   
   inpEngine <- match.arg(inpEngine)
   
-  if(is.null(inpsub1)){inpsub1 = inpConf$UI[1]}
+  if (is.null(inpsub1)) inpsub1 <- inpConf$UI[1]
   
-  geneList = scGeneList(inp, inpGene)
-  geneList = geneList[present == TRUE]
-  shiny::validate(shiny::need(nrow(geneList) <= 50, "More than 50 genes to plot! Please reduce the gene list!"))
-  shiny::validate(shiny::need(nrow(geneList) > 1, "Please input at least 2 genes to plot!"))
+  geneList <- scGeneList(inp, inpGene)
+  geneList <- geneList[present == TRUE]
+  
+  shiny::validate(shiny::need(nrow(geneList) <= 50, "More than 50 genes to plot. Please reduce the gene list."))
+  shiny::validate(shiny::need(nrow(geneList) > 1, "Please input at least 2 genes to plot."))
   
   h5file <- H5File$new(inpH5, mode = "r")
+  on.exit(try(h5file$close_all(), silent = TRUE), add = TRUE)
   h5data <- h5file[["grp"]][["data"]]
-  ggData = data.table()
-  for(iGene in geneList$gene){
-    tmp = inpMeta[, c("sampleID", inpConf[UI == inpsub1]$ID), with = FALSE]
-    colnames(tmp) = c("sampleID", "sub")
-    tmp$grpBy = inpMeta[[inpConf[UI == inpGrp]$ID]]
-    tmp$geneName = iGene
-    tmp$val = h5data$read(args = list(inpGene[iGene], quote(expr=)))
-    ggData = rbindlist(list(ggData, tmp))
-  }
-  h5file$close_all()
   
-  if(length(inpsub2) != 0 & length(inpsub2) != nlevels(ggData$sub)){
-    ggData = ggData[sub %in% inpsub2]
-  }
-  shiny::validate(shiny::need(uniqueN(ggData$grpBy) > 1, "Only 1 group present, unable to plot!"))
   
-  ggData$val = expm1(ggData$val)
-  ggData = ggData[, .(val = mean(val), prop = sum(val > 0) / length(sampleID)),
-                  by = c("geneName", "grpBy")]
-  ggData$val = log1p(ggData$val)
-  
-  colRange = range(ggData$val)
-  if(inpScl){
-    ggData[, val := scale(val), keyby = "geneName"]
-    colRange = c(-max(abs(range(ggData$val))), max(abs(range(ggData$val))))
+  ggData <- data.table::data.table()
+  for (iGene in geneList$gene) {
+    tmp <- inpMeta[, c("sampleID", inpConf[UI == inpsub1]$ID), with = FALSE]
+    colnames(tmp) <- c("sampleID", "sub")
+    tmp$grpBy <- inpMeta[[inpConf[UI == inpGrp]$ID]]
+    tmp$geneName <- iGene
+    tmp$val <- h5data$read(args = list(inpGene[iGene], quote(expr=)))
+    ggData <- data.table::rbindlist(list(ggData, tmp))
   }
   
-  ggMat = dcast.data.table(ggData, geneName ~ grpBy, value.var = "val")
-  tmp = ggMat$geneName
-  ggMat = as.matrix(ggMat[, -1])
-  rownames(ggMat) = tmp
+  if (length(inpsub2) != 0 && length(inpsub2) != nlevels(ggData$sub)) {
+    ggData <- ggData[sub %in% inpsub2]
+  }
   
-  if(inpRow){
-    hcRow = dendro_data(as.dendrogram(hclust(dist(ggMat))))
-    ggData$geneName = factor(ggData$geneName, levels = hcRow$labels$label)
+  shiny::validate(shiny::need(data.table::uniqueN(ggData$grpBy) > 1, "Only 1 group present, unable to plot."))
+  
+  ggData$val <- expm1(ggData$val)
+  ggData <- ggData[, .(
+    val  = mean(val),
+    prop = sum(val > 0) / length(sampleID)
+  ), by = c("geneName", "grpBy")]
+  ggData$val <- log1p(ggData$val)
+  
+  colRange <- range(ggData$val)
+  if (isTRUE(inpScl)) {
+    ggData[, val := as.numeric(scale(val)), keyby = "geneName"]
+    colRange <- c(-max(abs(range(ggData$val))), max(abs(range(ggData$val))))
+  }
+  
+  ggMat <- data.table::dcast.data.table(ggData, geneName ~ grpBy, value.var = "val")
+  tmp <- ggMat$geneName
+  ggMat <- as.matrix(ggMat[, -1])
+  rownames(ggMat) <- tmp
+  
+  if (isTRUE(inpRow)) {
+    hcRow <- ggplot2::ggplot_build(ggplot2::ggplot()) # placeholder to ensure ggplot2 loaded
+    hcRow <- ggdendro::dendro_data(as.dendrogram(stats::hclust(stats::dist(ggMat))))
+    ggData$geneName <- factor(ggData$geneName, levels = hcRow$labels$label)
   } else {
-    ggData$geneName = factor(ggData$geneName, levels = rev(geneList$gene))
+    ggData$geneName <- factor(ggData$geneName, levels = rev(geneList$gene))
   }
   
-  if(inpCol){
-    hcCol = dendro_data(as.dendrogram(hclust(dist(t(ggMat)))))
-    ggData$grpBy = factor(ggData$grpBy, levels = hcCol$labels$label)
+  if (isTRUE(inpCol)) {
+    hcCol <- ggdendro::dendro_data(as.dendrogram(stats::hclust(stats::dist(t(ggMat)))))
+    ggData$grpBy <- factor(ggData$grpBy, levels = hcCol$labels$label)
   }
   
-  if(inpPlt == "Bubbleplot"){
+  if (inpPlt == "Bubbleplot") {
     
-    if(inpEngine == "FlexDotPlot"){
+    if (inpEngine == "FlexDotPlot") {
       
       shiny::validate(
         shiny::need(requireNamespace("FlexDotPlot", quietly = TRUE),
@@ -91,63 +100,83 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
       )
       
       dot_df <- as.data.frame(ggData[, .(grpBy, geneName, val, prop)])
-      dot_df$grpBy   <- as.factor(dot_df$grpBy)
+      dot_df$grpBy <- as.factor(dot_df$grpBy)
       dot_df$geneName <- as.factor(dot_df$geneName)
       
       res <- FlexDotPlot::dot_plot(
-        data.to.plot = dot_df[, c("grpBy", "geneName")],
-        size         = dot_df$prop,
-        col          = dot_df$val,
+        data.to.plot = dot_df,
+        size_var     = "prop",
+        col_var      = "val",
         scale.by     = "radius",
         cols.use     = cList[[inpcols]],
         plot.legend  = TRUE,
+        do.return    = TRUE,
         do.plot      = FALSE,
-        do.return    = TRUE
+        x.lab.pos    = "bottom",
+        y.lab.pos    = "left"
       )
       
-      return(res$plot)
+      if ("dot.plot" %in% names(res)) return(res$dot.plot)
+      if ("plot" %in% names(res)) return(res$plot)
+      
+      gg_idx <- which(vapply(res, inherits, logical(1), what = "ggplot"))
+      if (length(gg_idx) > 0) return(res[[gg_idx[1]]])
+      
+      stop("FlexDotPlot returned an unexpected object structure.")
     }
     
-    ggOut = ggplot(ggData, aes(grpBy, geneName, color = val, size = prop)) +
-      geom_point() +
+    ggOut <- ggplot2::ggplot(ggData, ggplot2::aes(grpBy, geneName, color = val, size = prop)) +
+      ggplot2::geom_point() +
       sctheme(base_size = sList[inpfsz], Xang = 45, XjusH = 1) +
-      scale_x_discrete(expand = c(0.05, 0)) +
-      scale_y_discrete(expand = c(0, 0.5)) +
-      scale_size_continuous("proportion", range = c(0, 8),
-                            limits = c(0, 1), breaks = c(0.00,0.25,0.50,0.75,1.00)) +
-      scale_color_gradientn("expression", limits = colRange, colours = cList[[inpcols]]) +
-      guides(color = guide_colorbar(barwidth = 15)) +
-      theme(axis.title = element_blank(), legend.box = "vertical")
+      ggplot2::scale_x_discrete(expand = c(0.05, 0)) +
+      ggplot2::scale_y_discrete(expand = c(0, 0.5)) +
+      ggplot2::scale_size_continuous(
+        "proportion",
+        range  = c(0, 8),
+        limits = c(0, 1),
+        breaks = c(0.00, 0.25, 0.50, 0.75, 1.00)
+      ) +
+      ggplot2::scale_color_gradientn(
+        "expression",
+        limits  = colRange,
+        colours = cList[[inpcols]]
+      ) +
+      ggplot2::guides(color = ggplot2::guide_colorbar(barwidth = 15)) +
+      ggplot2::theme(axis.title = ggplot2::element_blank(), legend.box = "vertical")
     
   } else {
     
-    ggOut = ggplot(ggData, aes(grpBy, geneName, fill = val)) +
-      geom_tile() +
+    ggOut <- ggplot2::ggplot(ggData, ggplot2::aes(grpBy, geneName, fill = val)) +
+      ggplot2::geom_tile() +
       sctheme(base_size = sList[inpfsz], Xang = 45, XjusH = 1) +
-      scale_x_discrete(expand = c(0.05, 0)) +
-      scale_y_discrete(expand = c(0, 0.5)) +
-      scale_fill_gradientn("expression", limits = colRange, colours = cList[[inpcols]]) +
-      guides(fill = guide_colorbar(barwidth = 15)) +
-      theme(axis.title = element_blank())
+      ggplot2::scale_x_discrete(expand = c(0.05, 0)) +
+      ggplot2::scale_y_discrete(expand = c(0, 0.5)) +
+      ggplot2::scale_fill_gradientn(
+        "expression",
+        limits  = colRange,
+        colours = cList[[inpcols]]
+      ) +
+      ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = 15)) +
+      ggplot2::theme(axis.title = ggplot2::element_blank())
   }
   
-  ggLeg = g_legend(ggOut)
-  ggOut = ggOut + theme(legend.position = "none")
+  ggLeg <- g_legend(ggOut)
+  ggOut <- ggOut + ggplot2::theme(legend.position = "none")
   
-  if(!save){
-    ggOut = grid.arrange(ggOut, ggLeg, heights = c(7,2), layout_matrix = rbind(c(1),c(2)))
+  if (!isTRUE(save)) {
+    ggOut <- gridExtra::grid.arrange(ggOut, ggLeg, heights = c(7, 2), layout_matrix = rbind(c(1), c(2)))
   } else {
-    ggOut = arrangeGrob(ggOut, ggLeg, heights = c(7,2), layout_matrix = rbind(c(1),c(2)))
+    ggOut <- gridExtra::arrangeGrob(ggOut, ggLeg, heights = c(7, 2), layout_matrix = rbind(c(1), c(2)))
   }
   
-  return(ggOut)
+  ggOut
 }
 
 ################################################# UI #################################################
 
 scBubbHeat_ui <- function(id, sc1conf, sc1def) {
   
-  ns <- NS(id)
+  ns <- shiny::NS(id)
   
   tabPanel(
     HTML("Bubbleplot / Heatmap"),
@@ -202,9 +231,9 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
         
         br(), br(),
         actionButton(ns("sc1d1tog"), "Customize plot"),
-        
         conditionalPanel(
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1d1tog")),
+          
           conditionalPanel(
             condition = sprintf("input['%s'] == 'Bubbleplot'", ns("sc1d1plt")),
             radioButtons(
@@ -215,6 +244,7 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
               inline   = TRUE
             )
           ),
+          
           radioButtons(
             ns("sc1d1cols"), "Colour scheme:",
             choices = c("White-Red", "Blue-Yellow-Red", "Yellow-Green-Purple"),
@@ -240,12 +270,16 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
         downloadButton(ns("sc1d1oup.pdf"), "Download PDF"),
         downloadButton(ns("sc1d1oup.png"), "Download PNG"),
         br(),
-        div(style = "display:inline-block",
-            numericInput(ns("sc1d1oup.h"), "PDF / PNG height:", width = "138px",
-                         min = 4, max = 20, value = 10, step = 0.5)),
-        div(style = "display:inline-block",
-            numericInput(ns("sc1d1oup.w"), "PDF / PNG width:", width = "138px",
-                         min = 4, max = 20, value = 10, step = 0.5))
+        div(
+          style = "display:inline-block",
+          numericInput(ns("sc1d1oup.h"), "PDF / PNG height:", width = "138px",
+                       min = 4, max = 20, value = 10, step = 0.5)
+        ),
+        div(
+          style = "display:inline-block",
+          numericInput(ns("sc1d1oup.w"), "PDF / PNG width:", width = "138px",
+                       min = 4, max = 20, value = 10, step = 0.5)
+        )
       )
     )
   )
@@ -254,7 +288,7 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
 ############################################## Server ################################################
 
 scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
-  moduleServer(id, function(input, output, session) {
+  shiny::moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
     
@@ -273,7 +307,8 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
                          selected = sc1def$gene2, options = list(maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt)))
     updateSelectizeInput(session, "sc1c1inp2", server = TRUE,
                          choices = c(sc1conf[is.na(fID)]$UI, names(sc1gene)),
-                         selected = sc1conf[is.na(fID)]$UI[1], options = list(
+                         selected = sc1conf[is.na(fID)]$UI[1],
+                         options = list(
                            maxOptions = length(sc1conf[is.na(fID)]$UI) + 3,
                            create = TRUE, persist = TRUE, render = I(optCrt)
                          ))
@@ -285,8 +320,8 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
     output$sc1d1sub1.ui <- renderUI({
       req(input$sc1d1sub1)
       sub <- strsplit(sc1conf[UI == input$sc1d1sub1]$fID, "\\|")[[1]]
-      checkboxGroupInput(ns("sc1d1sub2"), "Select which cells to show", inline = TRUE,
-                         choices = sub, selected = sub)
+      checkboxGroupInput(ns("sc1d1sub2"), "Select which cells to show",
+                         inline = TRUE, choices = sub, selected = sub)
     })
     
     observeEvent(input$sc1d1sub1non, {
@@ -327,17 +362,23 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
       HTML(oup)
     })
     
-    
     output$sc1d1oup <- renderPlot({
+      
+      engine <- if (is.null(input$sc1d1engine) || !nzchar(input$sc1d1engine)) {
+        "Classic ggplot"
+      } else {
+        input$sc1d1engine
+      }
+      
       p <- scBubbHeat(
         sc1conf, sc1meta,
         input$sc1d1inp, input$sc1d1grp, input$sc1d1plt,
         input$sc1d1sub1, input$sc1d1sub2,
-        paste0(dir_inputs,"sc1gexpr.h5"),
+        file.path(dir_inputs, "sc1gexpr.h5"),
         sc1gene,
         input$sc1d1scl, input$sc1d1row, input$sc1d1col,
         input$sc1d1cols, input$sc1d1fsz,
-        inpEngine = input$sc1d1engine
+        inpEngine = engine
       )
       
       if (inherits(p, "grob") || inherits(p, "gtable")) {
@@ -357,21 +398,28 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
         paste0("sc1", input$sc1d1plt, "_", input$sc1d1grp, ".pdf")
       },
       content = function(file) {
-        ggsave(
+        
+        engine <- if (is.null(input$sc1d1engine) || !nzchar(input$sc1d1engine)) {
+          "Classic ggplot"
+        } else {
+          input$sc1d1engine
+        }
+        
+        ggplot2::ggsave(
           file, device = "pdf",
           height = input$sc1d1oup.h, width = input$sc1d1oup.w,
           plot = scBubbHeat(
             sc1conf, sc1meta,
             input$sc1d1inp, input$sc1d1grp, input$sc1d1plt,
             input$sc1d1sub1, input$sc1d1sub2,
-            paste0(dir_inputs,"sc1gexpr.h5"),
+            file.path(dir_inputs, "sc1gexpr.h5"),
             sc1gene,
             input$sc1d1scl, input$sc1d1row, input$sc1d1col,
             input$sc1d1cols, input$sc1d1fsz,
-            inpEngine = input$sc1d1engine,
+            inpEngine = engine,
             save = TRUE
           )
-          )
+        )
       }
     )
     
@@ -380,19 +428,25 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
         paste0("sc1", input$sc1d1plt, "_", input$sc1d1grp, ".png")
       },
       content = function(file) {
-        ggsave(
+        
+        engine <- if (is.null(input$sc1d1engine) || !nzchar(input$sc1d1engine)) {
+          "Classic ggplot"
+        } else {
+          input$sc1d1engine
+        }
+        
+        ggplot2::ggsave(
           file, device = "png",
           height = input$sc1d1oup.h, width = input$sc1d1oup.w,
           plot = scBubbHeat(
             sc1conf, sc1meta,
-            input$sc1d1inp,
-            input$sc1d1grp,
-            input$sc1d1plt,
+            input$sc1d1inp, input$sc1d1grp, input$sc1d1plt,
             input$sc1d1sub1, input$sc1d1sub2,
             file.path(dir_inputs, "sc1gexpr.h5"),
             sc1gene,
             input$sc1d1scl, input$sc1d1row, input$sc1d1col,
             input$sc1d1cols, input$sc1d1fsz,
+            inpEngine = engine,
             save = TRUE
           )
         )
@@ -406,7 +460,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 
 register_tab(
   id     = "bubble_heatmap",
-  title  = "Bubble Plot/ Het",
+  title  = "Bubble Plot / Heatmap",
   ui     = scBubbHeat_ui,
   server = scBubbHeat_server
 )

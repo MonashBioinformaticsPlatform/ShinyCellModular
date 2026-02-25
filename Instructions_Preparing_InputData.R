@@ -81,6 +81,8 @@ cnts <- RunUMAP(
 
 
 
+
+
 ##########################################################################################################
 # Create the configuration files for a ShinyCell app (For only RNA assays)
 ##########################################################################################################
@@ -107,7 +109,7 @@ makeShinyCodes(shiny.title = "ShinyCell2 Pando Processed multiomics", shiny.pref
 
 
 ##########################################################################################################
-# Function that 
+# Function that creates the ShinyCellPlus App
 ##########################################################################################################
 
 source("../useShinyCellPlus.R")
@@ -118,14 +120,47 @@ useShinyCellPlus(
     shinycellplus.dir.src="~/Dropbox/BioPlatform/ShinyCellPlus_devel/ShinyCellPlus/",
     rsconnect.deploy = FALSE,
     data_type = "",
-    enabled_tabs = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex"),
+    enabled_tabs = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex","violin_boxplot","proportions","bubble_heatmap","pseudobulk"),
     overwrite_code = TRUE,
     app_title='Testing'
 )
 
 
+##########################################################################################################
+# Adding Pesudobulking:
+##########################################################################################################
+
+library(hdf5r)
+library(Matrix)
 
 
+counts <- GetAssayData(cnts, assay = "RNA", layer= "counts")
+
+dirname<- "Files_ShinyCell/"
+file.h5 <- H5File$new(paste0(dirname,"sc1counts.h5"), mode = "w")
+grp <- file.h5$create_group("counts")
+
+counts_dense <- as.matrix(counts)
+storage.mode(counts_dense) <- "integer"
+
+grp$create_dataset(
+  "counts",
+  robj       = counts_dense,
+  dtype      = h5types$H5T_STD_I32LE,
+  chunk_dims = c(1, ncol(counts_dense)),
+  gzip_level = 4
+)
+
+file.h5$close_all()
+
+# ##########################################################################################################
+# Function that creates a template to create a new module script
+##########################################################################################################
+# this is buggy doesnt no create sc1 prefixes corrrectly
+SCPModuleTemplate(module_dir = "Files_ShinyCell/code/modules/",
+                  tab_id = "pseudobulk",
+                  module_name="pseudobulk",
+                  tab_title = "Pseudobulking")
 
 
 
