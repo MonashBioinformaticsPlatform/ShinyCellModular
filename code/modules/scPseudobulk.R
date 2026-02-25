@@ -33,26 +33,102 @@ sc_h5_find_dataset <- function(h5, candidates) {
   NULL
 }
 
-sc_h5_read_counts_block <- function(h5_path, gene_idx, cell_idx,
-                                    dataset_candidates = c("counts/counts", "counts/data", "grp/data")) {
-  shiny::validate(
-    shiny::need(sc_has_pkg("hdf5r"), "Package hdf5r is required to read H5 counts.")
-  )
+sc_h5_read_counts_block <- function(
+        h5_path,
+        gene_idx,
+        cell_idx,
+        dataset_candidates = c("counts/counts", "counts/data", "grp/data"),
+        csc_group = "counts",
+        attach_dimnames = FALSE
+    ) {
+      shiny::validate(
+        shiny::need(sc_has_pkg("hdf5r"), "Package hdf5r is required to read H5 counts.")
+      )
+      
+      h5 <- hdf5r::H5File$new(h5_path, mode = "r")
+      on.exit(try(h5$close_all(), silent = TRUE), add = TRUE)
+      
+      # 1) Backwards compatible path: dense dataset exists
+      found <- sc_h5_find_dataset(h5, dataset_candidates)
+      if (!is.null(found)) {
+        dset <- found$obj
+        return(dset[gene_idx, cell_idx, drop = FALSE])
+      }
+      
+      # 2) CSC fallback: prepShinyCellPlus format
+      shiny::validate(
+        shiny::need(h5$exists(csc_group), paste0("Missing H5 group: ", csc_group))
+      )
+      grp <- h5[[csc_group]]
+      
+      required <- c("i", "p", "x", "dims")
+      missing <- required[!vapply(required, grp$exists, logical(1))]
+      shiny::validate(
+        shiny::need(length(missing) == 0, paste0(
+          "Could not find a dense counts dataset and CSC pieces are incomplete in ", basename(h5_path), ". ",
+          "Missing in ", csc_group, ": ", paste(missing, collapse = ", ")
+        ))
+      )
+      
+      i <- grp[["i"]][]
+      p <- grp[["p"]][]
+      x <- grp[["x"]][]
+      dims <- grp[["dims"]][]
+      
+      n_genes <- as.integer(dims[1])
+      n_cells <- as.integer(dims[2])
+      
+      gene_idx <- as.integer(gene_idx)
+      cell_idx <- as.integer(cell_idx)
+      
+      shiny::validate(
+        shiny::need(all(gene_idx >= 1 & gene_idx <= n_genes), "gene_idx out of range for sc1counts.h5"),
+        shiny::need(all(cell_idx >= 1 & cell_idx <= n_cells), "cell_idx out of range for sc1counts.h5")
+      )
+      
+      # CSC conventions
+      # i is 0 based row index for each nonzero
+      # p is column pointer vector of length n_cells + 1
+      # x is values aligned to i
+      # For a given column c (1 based), the nonzeros are in x[(p[c] + 1):(p[c + 1])]
+      
+      cell_idx_u <- sort(unique(cell_idx))
+      gene_idx_u <- sort(unique(gene_idx))
+      
+      out <- matrix(0, nrow = length(gene_idx_u), ncol = length(cell_idx_u))
+      
+      gene_pos <- match(gene_idx_u, gene_idx_u)
+      
+      for (jj in seq_along(cell_idx_u)) {
+        c <- cell_idx_u[jj]
+        start <- as.integer(p[c]) + 1L
+        end <- as.integer(p[c + 1L])
+        
+        if (end >= start) {
+          rows0 <- i[start:end]
+          vals <- x[start:end]
+          rows1 <- as.integer(rows0) + 1L
+          
+          keep <- rows1 %in% gene_idx_u
+          if (any(keep)) {
+            rows_keep <- rows1[keep]
+            pos <- match(rows_keep, gene_idx_u)
+            out[pos, jj] <- vals[keep]
+          }
+        }
+      }
   
-  h5 <- hdf5r::H5File$new(h5_path, mode = "r")
-  on.exit(try(h5$close_all(), silent = TRUE), add = TRUE)
-  
-  found <- sc_h5_find_dataset(h5, dataset_candidates)
-  shiny::validate(
-    shiny::need(!is.null(found), paste0(
-      "Could not find a counts dataset in ", basename(h5_path), ". ",
-      "Tried: ", paste(dataset_candidates, collapse = ", ")
-    ))
-  )
-  
-  dset <- found$obj
-  dset[gene_idx, cell_idx, drop = FALSE]
+      # Reorder to match the input order the caller requested
+      out <- out[match(gene_idx, gene_idx_u), match(cell_idx, cell_idx_u), drop = FALSE]
+      
+      if (isTRUE(attach_dimnames)) {
+        if (grp$exists("genes")) rownames(out) <- grp[["genes"]][][gene_idx]
+        if (grp$exists("cells")) colnames(out) <- grp[["cells"]][][cell_idx]
+      }
+      
+      out
 }
+
 
 sc_make_pseudobulk <- function(sc1conf,
                                sc1meta,
