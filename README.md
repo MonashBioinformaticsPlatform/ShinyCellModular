@@ -363,7 +363,7 @@ Each module is one R file inside ```code/modules```. each R script contains 4 bl
 
 ## Dependencies 
 
-If you use additional libraries please add them to here or direvtly update the renv. Make sure you update the `useShinyCellPlus.R()` function
+If you use additional libraries please add them to here or directly update the renv. Make sure you update the `useShinyCellPlus.R()` function
 
 ```
 library(shiny)
@@ -393,54 +393,97 @@ library(edgeR)
 
 ```
 
-## Create new module 
-Modules in `code/modules` folder are ready to be use. Modules in development are in `code/develop`. 
-You can use the helper function `createSCPModuleTemplate()` to create a new module in the modules folder so it keeps track of
-any exiting registration details that could be conflicting. You can then move it if necesary
+## Create a new module
 
+Modules in `code/modules` are ready to use. Modules under development live in `code/develop`.
+
+Use the helper `createSCPModuleTemplate()` to create a new module file in `code/modules`. The helper function scans existing modules and avoids clashes with existing `register_tab()` ids and `sc1*` prefixes. Hence it is *crutial* to run `createSCPModuleTemplate()` in `code/modules`. If needed, you can move the generated file to `code/develop` afterwards.
 
 ```
-createSCPModuleTemplate(module_dir = "ShinyCellPlus/code/modules/",
-                  tab_id = "scNewTab",
-                  module_name="scNewTab",
-                  tab_title = "New Analysis")
-
+createSCPModuleTemplate(
+  module_dir  = "ShinyCellPlus/code/modules/",
+  tab_id      = "scNewTab",
+  module_name = "scNewTab",
+  tab_title   = "New Analysis"
+)
 ```
 
 The app loads modules automatically.
 
+## Create a new module manually
 
-## Creating new  module manually
+If you want to create a module by hand, start by copying the relevant code from the original ShinyCell `ui.R` and `server.R`.
 
-to create a new module copy paste all related functions from the server.r from ShinyCell. 
-Copy paste the section of ui.r and server.r that correspond to that tab. Search sc1a1 for example and you can see the related ui and server usage in the whole server.r script. 
+1. Find the tab you want to replicate
+Search for an existing prefix, for example sc1a1, and copy the corresponding UI and server blocks for that tab.
 
-in the same file make a function section, UI section, server Section, and Registration Section
-create a ui and server function. 
+2. In your new module file, keep the same structure
+Include the following sections in order
 
+- Function section
+- UI section - create a UI function
+- Server section - create a Server function
+- Registration section
 
-add ns() to all inputs in ui. namespaced. search "sc1a1/a2/b2" those are usually the ones that need ns()
-in server add ns() to   plotOutput and checkboxGroupInput
-
-
-change condition panel like:
-```
-condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog2"))
-```
-
-change the work Toggle  for more user friendly language
-
-this at the start of UI:
+3. UI Function
+At the top of the UI function, initialise the namespace
 
 ```
 scDRnum_ui <- function(id, sc1conf, sc1def) {
-  
+
   ns <- NS(id)
-  
+
+  ...
+}
+```
+   3.1. Namespace inputs in the UI
+   Wrap input ids with `ns()` in the UI. The ones that commonly get missed are `sc1a1`, `sc1a2`, `sc1b2`, etc.
+
+   3.2 Namespace ids inside the server where needed
+   Use `ns()` in places like `plotOutput()` and `checkboxGroupInput()` where you are declaring UI elements inside the server via `renderUI()`.
+
+   3.3 Update conditionalPanel() conditions
+   Use the namespaced input id inside sprintf, for example
+
+```
+   condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog2"))
+```
+   3.4 Make toggle labels user friendly
+   Rename toggle button text to something that reads clearly in the UI.
+
+4. Server Function
+At the top of the server function, initialise the session namespace and include the helper setup
+
+```
+scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
+  moduleServer(id, function(input, output, session) {
+
+    ns <- session$ns
+
+    observe_helpers()
+
+    ...
+  })
+}
+```
+  4.1 Note on server side selectize setup. If you are using server side selectize inputs, keep the observe_helpers() call and your updateSelectizeInput() setup near the start of the server function.
+
+5. Register the tab
+Your module must end with a register_tab() call like this
+
+```
+register_tab(
+  id     = "cellinfo_geneexpr",
+  title  = "CellInfo vs GeneExpr",
+  ui     = scDRnum_ui,
+  server = scDRnum_server
+)
+
 ```
 
 
-add this to the start of server:
+
+
 ```
 scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
   moduleServer(id, function(input, output, session) {
