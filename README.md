@@ -417,7 +417,7 @@ If you want to create a module by hand, start by copying the relevant code from 
 **1.** Find the tab you want to replicate
 Search for an existing prefix, for example sc1a1, and copy the corresponding UI and server blocks for that tab.
 
- 2. In your new module file, keep the same structure
+**2.** In your new module file, keep the same structure
 Include the following sections in order
 
 - Function section
@@ -425,7 +425,7 @@ Include the following sections in order
 - Server section - create a Server function
 - Registration section
 
-3. UI Function
+**3.** UI Function
 At the top of the UI function, initialise the namespace
 
 ```
@@ -436,22 +436,23 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
   ...
 }
 ```
-   3.1. Namespace inputs in the UI
+   **3.1.** Namespace inputs in the UI
    Wrap input ids with `ns()` in the UI. The ones that commonly get missed are `sc1a1`, `sc1a2`, `sc1b2`, etc.
 
-   3.2 Namespace ids inside the server where needed
+   **3.2.** Namespace ids inside the server where needed
    Use `ns()` in places like `plotOutput()` and `checkboxGroupInput()` where you are declaring UI elements inside the server via `renderUI()`.
 
-   3.3 Update conditionalPanel() conditions
+   **3.3.** Update conditionalPanel() conditions
    Use the namespaced input id inside sprintf, for example
 
 ```
    condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog2"))
 ```
-   3.4 Make toggle labels user friendly
+   
+   **3.4.** Make toggle labels user friendly
    Rename toggle button text to something that reads clearly in the UI.
 
-4. Server Function
+**4.** Server Function
 At the top of the server function, initialise the session namespace and include the helper setup
 
 ```
@@ -459,37 +460,6 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
   moduleServer(id, function(input, output, session) {
 
     ns <- session$ns
-
-    observe_helpers()
-
-    ...
-  })
-}
-```
-  4.1 Note on server side selectize setup. If you are using server side selectize inputs, keep the observe_helpers() call and your updateSelectizeInput() setup near the start of the server function.
-
-5. Register the tab
-Your module must end with a register_tab() call like this
-
-```
-register_tab(
-  id     = "cellinfo_geneexpr",
-  title  = "CellInfo vs GeneExpr",
-  ui     = scDRnum_ui,
-  server = scDRnum_server
-)
-
-```
-
-
-
-
-```
-scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
-  moduleServer(id, function(input, output, session) {
-    
-    ns <- session$ns
-    
     ### For all tags and Server-side selectize 
     observe_helpers() 
     optCrt="{ option_create: function(data,escape) {return('<div class=\"create\"><strong>' + '</strong></div>');} }" 
@@ -513,11 +483,17 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
                          selected = sc1conf[is.na(fID)]$UI[1], options = list( 
                            maxOptions = length(sc1conf[is.na(fID)]$UI) + 3, 
                            create = TRUE, persist = TRUE, render = I(optCrt))) 
-    
+
+    ...
+  })
+}
 ```
+  
+  **4.1.** Note on server side selectize setup. If you are using server side selectize inputs, keep the observe_helpers() call and your updateSelectizeInput() setup near the start of the server function.
 
+**5.** Register the tab
+Your module must end with a register_tab() call like this
 
-the registration looks like:
 ```
 register_tab(
   id     = "cellinfo_geneexpr",
@@ -525,8 +501,6 @@ register_tab(
   ui     = scDRnum_ui,
   server = scDRnum_server
 )
+
 ```
-
-
-
 
