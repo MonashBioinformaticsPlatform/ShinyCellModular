@@ -405,10 +405,9 @@ if (isTRUE(rsconnect.deploy)) {
   rsconnect::writeManifest(appDir = shiny.dir)
   message("Wrote rsconnect manifest in: ", shiny.dir)
   
-  manifest_path <- "manifest.json"
   dir_prefix <- shiny.dir
-  
-  m <- fromJSON(manifest_path, simplifyVector = FALSE)
+  manifest_path <- file.path(shiny.dir, "manifest.json")
+  m <- jsonlite::fromJSON(manifest_path, simplifyVector = FALSE)
   
   stopifnot(!is.null(m$files))
   old_keys <- names(m$files)
