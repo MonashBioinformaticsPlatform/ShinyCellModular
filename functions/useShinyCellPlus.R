@@ -287,7 +287,7 @@ get_app_dir <- function() {
 }
 
 app_dir <- get_app_dir()
-modules_dir <- file.path(app_dir, "code", "modules")
+modules_dir <- file.path(app_dir, "modules")
 
 if (!dir.exists(modules_dir)) {
   stop("Modules dir not found: ", modules_dir, " Current working directory: ", getwd())
