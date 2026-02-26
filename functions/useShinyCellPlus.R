@@ -3,9 +3,9 @@ useShinyCellPlus <- function(
     shinycellplus.dir.src, # code where shinycellplus 
     rsconnect.deploy = FALSE, # do you want to publish in rsconnect
     data_type = c("RNA", "RNA_ATAC", "SPATIAL"), # what predetermine tabs you want
-    enabled_tabs = NULL, # wat tabs you want
+    enabled_tabs = NULL, # what tabs you want
     overwrite_code = FALSE, # overwrite code
-    disable_ui_server = TRUE, # 
+    disable_ui_server = TRUE, # this disables the existing ui.R and server.r
     app_title=NULL
 ) {
   
@@ -147,7 +147,6 @@ library(hdf5r)
 library(ggdendro)
 library(gridExtra)
 library(arrow)
-library(rsconnect)
 library(shinythemes)
 library(shinydashboard)
 library(tidyverse)
@@ -400,8 +399,38 @@ writeLines(app_code, con = app_path)
 message("Wrote app.R to: ", app_path)
 
 if (isTRUE(rsconnect.deploy)) {
+  library(rsconnect)
+  library(jsonlite)
+  
   rsconnect::writeManifest(appDir = shiny.dir)
   message("Wrote rsconnect manifest in: ", shiny.dir)
+  
+  manifest_path <- "manifest.json"
+  dir_prefix <- shiny.dir
+  
+  m <- fromJSON(manifest_path, simplifyVector = FALSE)
+  
+  stopifnot(!is.null(m$files))
+  old_keys <- names(m$files)
+  
+  is_target <- grepl("\\.(rds|h5)$", old_keys, ignore.case = TRUE)
+  
+  targets <- old_keys[is_target]
+  if (length(targets) == 0) stop("No .rds or .h5 files found in manifest$files")
+  
+  for (k in targets) {
+    new_k <- paste0(dir_prefix, k)
+    if (!is.null(m$files[[new_k]])) stop("Target key already exists: ", new_k)
+    m$files[[new_k]] <- m$files[[k]]
+    m$files[[k]] <- NULL
+  }
+  
+  writeLines(toJSON(m, pretty = TRUE, auto_unbox = TRUE), manifest_path)
+  
+  cat("Updated keys:\n")
+  cat(paste0("  ", targets, " -> ", paste0(dir_prefix, targets)), sep = "\n")
+  cat("\n")
+  
 }
 
 invisible(app_path)
