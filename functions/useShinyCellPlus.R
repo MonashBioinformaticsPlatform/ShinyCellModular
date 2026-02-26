@@ -95,8 +95,8 @@ useShinyCellPlus <- function(
     }
   }
   
-  src_code <- file.path(shinycellplus.dir.src, "code")
-  dst_code <- file.path(shiny.dir, "code")
+  src_code <- file.path(shinycellplus.dir.src, "code/modules/")
+  dst_code <- file.path(shiny.dir, "code/modules/")
   
   if (!dir.exists(src_code)) {
     stop("Could not find 'code' folder in shinycellplus.dir.src: ", src_code)
@@ -153,10 +153,9 @@ library(shinydashboard)
 library(tidyverse)
 library(sortable)
 library(plotly)
-library(FlexDotPlot)
+library(FlexDotPlot) #devtools::install_github("Simon-Leonard/FlexDotPlot")
 library(RColorBrewer)
 library(ggforce)
-library(EnhancedVolcano) #BiocManager::install("EnhancedVolcano")
 library(limma) #BiocManager::install("limma")
 library(edgeR) #BiocManager::install("edgeR")
 
