@@ -418,7 +418,7 @@ if (isTRUE(rsconnect.deploy)) {
   if (length(targets) == 0) stop("No .rds or .h5 files found in manifest$files")
   
   for (k in targets) {
-    new_k <- paste0(dir_prefix, k)
+    new_k <- paste0(dir_prefix,"/", k)
     if (!is.null(m$files[[new_k]])) stop("Target key already exists: ", new_k)
     m$files[[new_k]] <- m$files[[k]]
     m$files[[k]] <- NULL
