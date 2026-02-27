@@ -412,7 +412,7 @@ if (isTRUE(rsconnect.deploy)) {
   stopifnot(!is.null(m$files))
   old_keys <- names(m$files)
   
-  is_target <- grepl("\\.(rds|h5)$", old_keys, ignore.case = TRUE)
+  is_target <- grepl("\\.(rds|h5||parquet)$", old_keys, ignore.case = TRUE)
   
   targets <- old_keys[is_target]
   if (length(targets) == 0) stop("No .rds or .h5 files found in manifest$files")
