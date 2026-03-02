@@ -1,6 +1,6 @@
 # ShinyCellPlus
 ***
-**ShinyCellPlus** is a modular, enhanced version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). Each module consists on a tab in the app. Each module is created individually and is it selfcontained. **ShinyCellPlus** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise.
+**ShinyCellPlus** is a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). Each module consists on a tab in the app. Each module is created individually and is it selfcontained. **ShinyCellPlus** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise.
 
 ## Features
 
