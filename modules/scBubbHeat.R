@@ -22,11 +22,12 @@ scGeneList <- function(inp, inpGene) {
 
 # Plot gene expression bubbleplot / heatmap
 scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
-                       inpsub1, inpsub2, inpH5, inpGene,
-                       inpScl, inpRow, inpCol,
-                       inpcols, inpfsz,
-                       inpEngine = c("Classic ggplot", "FlexDotPlot"),
-                       save = FALSE) {
+                        inpsub1, inpsub2, inpH5, inpGene,
+                        inpScl, inpRow, inpCol,
+                        inpcols, inpfsz,
+                        inpFacet = "None",
+                        inpEngine = c("Classic ggplot", "FlexDotPlot"),
+                        save = FALSE) {
   
   inpEngine <- match.arg(inpEngine)
   
@@ -37,6 +38,9 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
   
   shiny::validate(shiny::need(nrow(geneList) <= 50, "More than 50 genes to plot. Please reduce the gene list."))
   shiny::validate(shiny::need(nrow(geneList) > 1, "Please input at least 2 genes to plot."))
+  
+  # Determine whether faceting is active
+  useFacet <- !is.null(inpFacet) && nzchar(inpFacet) && inpFacet != "None"
   
   h5file <- H5File$new(inpH5, mode = "r")
   on.exit(try(h5file$close_all(), silent = TRUE), add = TRUE)
@@ -50,6 +54,12 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
     tmp$grpBy <- inpMeta[[inpConf[UI == inpGrp]$ID]]
     tmp$geneName <- iGene
     tmp$val <- h5data$read(args = list(inpGene[iGene], quote(expr=)))
+    
+    # Add facet column if active
+    if (useFacet) {
+      tmp$facetBy <- inpMeta[[inpConf[UI == inpFacet]$ID]]
+    }
+    
     ggData <- data.table::rbindlist(list(ggData, tmp))
   }
   
@@ -59,11 +69,15 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
   
   shiny::validate(shiny::need(data.table::uniqueN(ggData$grpBy) > 1, "Only 1 group present, unable to plot."))
   
+  # Build the grouping columns for aggregation
+  grpCols <- c("geneName", "grpBy")
+  if (useFacet) grpCols <- c(grpCols, "facetBy")
+  
   ggData$val <- expm1(ggData$val)
   ggData <- ggData[, .(
     val  = mean(val),
     prop = sum(val > 0) / length(sampleID)
-  ), by = c("geneName", "grpBy")]
+  ), by = grpCols]
   ggData$val <- log1p(ggData$val)
   
   colRange <- range(ggData$val)
@@ -72,13 +86,14 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
     colRange <- c(-max(abs(range(ggData$val))), max(abs(range(ggData$val))))
   }
   
-  ggMat <- data.table::dcast.data.table(ggData, geneName ~ grpBy, value.var = "val")
+  # Clustering: use the full (non-faceted) matrix for gene/column ordering
+  ggMatData <- ggData[, .(val = mean(val)), by = c("geneName", "grpBy")]
+  ggMat <- data.table::dcast.data.table(ggMatData, geneName ~ grpBy, value.var = "val")
   tmp <- ggMat$geneName
   ggMat <- as.matrix(ggMat[, -1])
   rownames(ggMat) <- tmp
   
   if (isTRUE(inpRow)) {
-    hcRow <- ggplot2::ggplot_build(ggplot2::ggplot()) # placeholder to ensure ggplot2 loaded
     hcRow <- ggdendro::dendro_data(as.dendrogram(stats::hclust(stats::dist(ggMat))))
     ggData$geneName <- factor(ggData$geneName, levels = hcRow$labels$label)
   } else {
@@ -99,30 +114,39 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
                     "FlexDotPlot engine selected but the FlexDotPlot package is not installed.")
       )
       
-      dot_df <- as.data.frame(ggData[, .(grpBy, geneName, val, prop)])
-      dot_df$grpBy <- as.factor(dot_df$grpBy)
-      dot_df$geneName <- as.factor(dot_df$geneName)
-      
-      res <- FlexDotPlot::dot_plot(
-        data.to.plot = dot_df,
-        size_var     = "prop",
-        col_var      = "val",
-        scale.by     = "radius",
-        cols.use     = cList[[inpcols]],
-        plot.legend  = TRUE,
-        do.return    = TRUE,
-        do.plot      = FALSE,
-        x.lab.pos    = "bottom",
-        y.lab.pos    = "left"
-      )
-      
-      if ("dot.plot" %in% names(res)) return(res$dot.plot)
-      if ("plot" %in% names(res)) return(res$plot)
-      
-      gg_idx <- which(vapply(res, inherits, logical(1), what = "ggplot"))
-      if (length(gg_idx) > 0) return(res[[gg_idx[1]]])
-      
-      stop("FlexDotPlot returned an unexpected object structure.")
+      # FlexDotPlot does not natively support faceting;
+      # fall back to Classic ggplot when a facet variable is active
+      if (useFacet) {
+        shiny::showNotification(
+          "FlexDotPlot does not support faceting. Falling back to Classic ggplot.",
+          type = "warning", duration = 5
+        )
+      } else {
+        dot_df <- as.data.frame(ggData[, .(grpBy, geneName, val, prop)])
+        dot_df$grpBy <- as.factor(dot_df$grpBy)
+        dot_df$geneName <- as.factor(dot_df$geneName)
+        
+        res <- FlexDotPlot::dot_plot(
+          data.to.plot = dot_df,
+          size_var     = "prop",
+          col_var      = "val",
+          scale.by     = "radius",
+          cols.use     = cList[[inpcols]],
+          plot.legend  = TRUE,
+          do.return    = TRUE,
+          do.plot      = FALSE,
+          x.lab.pos    = "bottom",
+          y.lab.pos    = "left"
+        )
+        
+        if ("dot.plot" %in% names(res)) return(res$dot.plot)
+        if ("plot" %in% names(res)) return(res$plot)
+        
+        gg_idx <- which(vapply(res, inherits, logical(1), what = "ggplot"))
+        if (length(gg_idx) > 0) return(res[[gg_idx[1]]])
+        
+        stop("FlexDotPlot returned an unexpected object structure.")
+      }
     }
     
     ggOut <- ggplot2::ggplot(ggData, ggplot2::aes(grpBy, geneName, color = val, size = prop)) +
@@ -158,6 +182,16 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
       ) +
       ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = 15)) +
       ggplot2::theme(axis.title = ggplot2::element_blank())
+  }
+  
+  # Apply faceting if a facet variable is selected
+  if (useFacet) {
+    ggOut <- ggOut +
+      ggplot2::facet_grid(. ~ facetBy, scales = "free_x", space = "free_x") +
+      ggplot2::theme(
+        strip.text       = ggplot2::element_text(size = sList[inpfsz] * 0.9, face = "bold"),
+        strip.background = ggplot2::element_blank()
+      )
   }
   
   ggLeg <- g_legend(ggOut)
@@ -203,6 +237,13 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
           ns("sc1d1grp"), "Group by:",
           choices = sc1conf[grp == TRUE]$UI,
           selected = sc1conf[grp == TRUE]$UI[1]
+        ),
+        
+        # ── NEW: Facet variable selector ──
+        selectInput(
+          ns("sc1d1facet"), "Facet by (split panels):",
+          choices = c("None", sc1conf[grp == TRUE]$UI),
+          selected = "None"
         ),
         
         radioButtons(
@@ -370,6 +411,8 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
         input$sc1d1engine
       }
       
+      facet_var <- if (is.null(input$sc1d1facet)) "None" else input$sc1d1facet
+      
       p <- scBubbHeat(
         sc1conf, sc1meta,
         input$sc1d1inp, input$sc1d1grp, input$sc1d1plt,
@@ -378,6 +421,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
         sc1gene,
         input$sc1d1scl, input$sc1d1row, input$sc1d1col,
         input$sc1d1cols, input$sc1d1fsz,
+        inpFacet = facet_var,
         inpEngine = engine
       )
       
@@ -405,6 +449,8 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
           input$sc1d1engine
         }
         
+        facet_var <- if (is.null(input$sc1d1facet)) "None" else input$sc1d1facet
+        
         ggplot2::ggsave(
           file, device = "pdf",
           height = input$sc1d1oup.h, width = input$sc1d1oup.w,
@@ -416,6 +462,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
             sc1gene,
             input$sc1d1scl, input$sc1d1row, input$sc1d1col,
             input$sc1d1cols, input$sc1d1fsz,
+            inpFacet = facet_var,
             inpEngine = engine,
             save = TRUE
           )
@@ -435,6 +482,8 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
           input$sc1d1engine
         }
         
+        facet_var <- if (is.null(input$sc1d1facet)) "None" else input$sc1d1facet
+        
         ggplot2::ggsave(
           file, device = "png",
           height = input$sc1d1oup.h, width = input$sc1d1oup.w,
@@ -446,6 +495,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
             sc1gene,
             input$sc1d1scl, input$sc1d1row, input$sc1d1col,
             input$sc1d1cols, input$sc1d1fsz,
+            inpFacet = facet_var,
             inpEngine = engine,
             save = TRUE
           )
@@ -460,7 +510,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 
 register_tab(
   id     = "bubble_heatmap",
-  title  = "Bubble Plot / Heatmap",
+  title  = "Bubble Plot / Heatmap ",
   ui     = scBubbHeat_ui,
   server = scBubbHeat_server
 )

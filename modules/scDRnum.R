@@ -209,7 +209,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
       
       column(
         6,
-        actionButton(ns("sc1a1tog0"), "Customize plot"),
+        actionButton(ns("sc1a1tog0"), "Customize Aesthetics for Both Plots"),
         conditionalPanel(
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1tog0")),
           fluidRow(

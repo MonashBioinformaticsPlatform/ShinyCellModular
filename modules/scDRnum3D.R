@@ -323,6 +323,21 @@ scDRnum3D_ui <- function(id, sc1conf, sc1def) {
       
       column(
         3,
+        # ── Camera sync: Capture & Apply workflow ──
+        h5("Sync 3D camera"),
+        radioButtons(
+          ns("sc1a1master"), "Master plot:",
+          choices  = c("Cell Info" = "plot1", "Gene Expr" = "plot2"),
+          selected = "plot1", inline = TRUE
+        ),
+        actionButton(ns("sc1a1captureBtn"), "1. Capture view",
+                     class = "btn btn-info", icon = icon("camera")),
+        actionButton(ns("sc1a1applyBtn"), "2. Apply to other plot",
+                     class = "btn btn-success", icon = icon("sync")),
+        br(),
+        verbatimTextOutput(ns("sc1a1camTxt")),
+        
+        br(),
         actionButton(ns("sc1a1togL"), "Filter Cells"),
         conditionalPanel(
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1togL")),
@@ -340,7 +355,7 @@ scDRnum3D_ui <- function(id, sc1conf, sc1def) {
       
       column(
         6,
-        actionButton(ns("sc1a1tog0"), "Customize plot"),
+        actionButton(ns("sc1a1tog0"), "Customize Aesthetics for Both Plots"),
         conditionalPanel(
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a1tog0")),
           fluidRow(
@@ -359,6 +374,60 @@ scDRnum3D_ui <- function(id, sc1conf, sc1def) {
         )
       )
     ),
+    
+    # ── JavaScript: "Capture" reads the LIVE camera from the plotly WebGL scene ──
+    tags$script(HTML(sprintf("
+      $(document).ready(function() {
+
+        var captureBtn = '%s';
+        var masterNm   = '%s';
+        var plot1Id    = '%s';
+        var plot2Id    = '%s';
+        var inputKey   = '%s';
+
+        function getLiveCamera(el) {
+          try {
+            var sceneObj = el._fullLayout.scene._scene;
+            if (sceneObj && typeof sceneObj.getCamera === 'function') {
+              return sceneObj.getCamera();
+            }
+          } catch(e) {}
+          try {
+            return el._fullLayout.scene.camera;
+          } catch(e) {}
+          return null;
+        }
+
+        $(document).on('click', '#' + captureBtn, function() {
+
+          var master = $('input[name=\"' + masterNm + '\"]:checked').val();
+          var srcId  = (master === 'plot1') ? plot1Id : plot2Id;
+          var srcEl  = document.getElementById(srcId);
+
+          if (!srcEl || !srcEl._fullLayout || !srcEl._fullLayout.scene) {
+            alert('Master plot not ready. Please wait for it to render.');
+            return;
+          }
+
+          var cam = getLiveCamera(srcEl);
+          if (!cam) {
+            alert('Could not read camera from master plot.');
+            return;
+          }
+
+          var camCopy = JSON.parse(JSON.stringify(cam));
+          console.log('Captured LIVE camera:', JSON.stringify(camCopy));
+
+          Shiny.setInputValue(inputKey, camCopy, {priority: 'event'});
+        });
+      });
+    ",
+      ns("sc1a1captureBtn"),
+      ns("sc1a1master"),
+      ns("sc1a1oup1"),
+      ns("sc1a1oup2"),
+      ns("captured_camera")
+    ))),
     
     fluidRow(
       column(
@@ -531,6 +600,59 @@ scDRnum3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
     output$sc1a1oup2_ui <- renderUI({
       req(input$sc1a1psz)
       plotly::plotlyOutput(ns("sc1a1oup2"), height = pList[input$sc1a1psz])
+    })
+    
+    # ══════════════════════════════════════════════
+    # Camera sync: Capture → Display → Apply
+    # ══════════════════════════════════════════════
+    
+    capturedCam <- reactiveVal(NULL)
+    
+    observeEvent(input$captured_camera, {
+      capturedCam(input$captured_camera)
+    })
+    
+    output$sc1a1camTxt <- renderPrint({
+      cam <- capturedCam()
+      if (is.null(cam)) {
+        cat("No camera captured yet.\nRotate/zoom, then click 'Capture view'.")
+      } else {
+        cat("Captured camera:\n")
+        cat("  eye:    x=", round(cam$eye$x, 3),
+                   " y=", round(cam$eye$y, 3),
+                   " z=", round(cam$eye$z, 3), "\n")
+        cat("  center: x=", round(cam$center$x, 3),
+                   " y=", round(cam$center$y, 3),
+                   " z=", round(cam$center$z, 3), "\n")
+        cat("  up:     x=", round(cam$up$x, 3),
+                   " y=", round(cam$up$y, 3),
+                   " z=", round(cam$up$z, 3), "\n")
+        if (!is.null(cam$projection$type)) {
+          cat("  projection:", cam$projection$type, "\n")
+        }
+      }
+    })
+    
+    observeEvent(input$sc1a1applyBtn, {
+      cam <- capturedCam()
+      if (is.null(cam)) {
+        shiny::showNotification("No camera captured yet. Click 'Capture view' first.",
+                                type = "warning")
+        return()
+      }
+      
+      master   <- input$sc1a1master
+      targetId <- if (master == "plot1") "sc1a1oup2" else "sc1a1oup1"
+      
+      proxy <- plotly::plotlyProxy(targetId, session)
+      
+      plotly::plotlyProxyInvoke(proxy, "relayout", list(
+        scene.camera = list(
+          eye    = list(x = cam$eye$x,    y = cam$eye$y,    z = cam$eye$z),
+          center = list(x = cam$center$x, y = cam$center$y, z = cam$center$z),
+          up     = list(x = cam$up$x,     y = cam$up$y,     z = cam$up$z)
+        )
+      ))
     })
     
   })

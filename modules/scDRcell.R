@@ -108,7 +108,7 @@ scDRcell_ui <- function(id, sc1conf, sc1def) {
         ) 
       ), # End of column (6 space) 
       column( 
-        6, actionButton(ns("sc1a2tog0"), "Customize plot"), 
+        6, actionButton(ns("sc1a2tog0"), "Customize Aesthetics for Both Plots"), 
         conditionalPanel( 
           condition = sprintf("input['%s'] %% 2 == 1", ns("sc1a2tog0")) ,
           fluidRow( 
