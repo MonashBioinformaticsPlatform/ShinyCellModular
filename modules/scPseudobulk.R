@@ -34,99 +34,92 @@ sc_h5_find_dataset <- function(h5, candidates) {
 }
 
 sc_h5_read_counts_block <- function(
-        h5_path,
-        gene_idx,
-        cell_idx,
-        dataset_candidates = c("counts/counts", "counts/data", "grp/data"),
-        csc_group = "counts",
-        attach_dimnames = FALSE
-    ) {
-      shiny::validate(
-        shiny::need(sc_has_pkg("hdf5r"), "Package hdf5r is required to read H5 counts.")
-      )
-      
-      h5 <- hdf5r::H5File$new(h5_path, mode = "r")
-      on.exit(try(h5$close_all(), silent = TRUE), add = TRUE)
-      
-      # 1) Backwards compatible path: dense dataset exists
-      found <- sc_h5_find_dataset(h5, dataset_candidates)
-      if (!is.null(found)) {
-        dset <- found$obj
-        return(dset[gene_idx, cell_idx, drop = FALSE])
-      }
-      
-      # 2) CSC fallback: prepShinyCellPlus format
-      shiny::validate(
-        shiny::need(h5$exists(csc_group), paste0("Missing H5 group: ", csc_group))
-      )
-      grp <- h5[[csc_group]]
-      
-      required <- c("i", "p", "x", "dims")
-      missing <- required[!vapply(required, grp$exists, logical(1))]
-      shiny::validate(
-        shiny::need(length(missing) == 0, paste0(
-          "Could not find a dense counts dataset and CSC pieces are incomplete in ", basename(h5_path), ". ",
-          "Missing in ", csc_group, ": ", paste(missing, collapse = ", ")
-        ))
-      )
-      
-      i <- grp[["i"]][]
-      p <- grp[["p"]][]
-      x <- grp[["x"]][]
-      dims <- grp[["dims"]][]
-      
-      n_genes <- as.integer(dims[1])
-      n_cells <- as.integer(dims[2])
-      
-      gene_idx <- as.integer(gene_idx)
-      cell_idx <- as.integer(cell_idx)
-      
-      shiny::validate(
-        shiny::need(all(gene_idx >= 1 & gene_idx <= n_genes), "gene_idx out of range for sc1counts.h5"),
-        shiny::need(all(cell_idx >= 1 & cell_idx <= n_cells), "cell_idx out of range for sc1counts.h5")
-      )
-      
-      # CSC conventions
-      # i is 0 based row index for each nonzero
-      # p is column pointer vector of length n_cells + 1
-      # x is values aligned to i
-      # For a given column c (1 based), the nonzeros are in x[(p[c] + 1):(p[c + 1])]
-      
-      cell_idx_u <- sort(unique(cell_idx))
-      gene_idx_u <- sort(unique(gene_idx))
-      
-      out <- matrix(0, nrow = length(gene_idx_u), ncol = length(cell_idx_u))
-      
-      gene_pos <- match(gene_idx_u, gene_idx_u)
-      
-      for (jj in seq_along(cell_idx_u)) {
-        c <- cell_idx_u[jj]
-        start <- as.integer(p[c]) + 1L
-        end <- as.integer(p[c + 1L])
-        
-        if (end >= start) {
-          rows0 <- i[start:end]
-          vals <- x[start:end]
-          rows1 <- as.integer(rows0) + 1L
-          
-          keep <- rows1 %in% gene_idx_u
-          if (any(keep)) {
-            rows_keep <- rows1[keep]
-            pos <- match(rows_keep, gene_idx_u)
-            out[pos, jj] <- vals[keep]
-          }
-        }
-      }
+    h5_path,
+    gene_idx,
+    cell_idx,
+    dataset_candidates = c("counts/counts", "counts/data", "grp/data"),
+    csc_group = "counts",
+    attach_dimnames = FALSE
+) {
+  shiny::validate(
+    shiny::need(sc_has_pkg("hdf5r"), "Package hdf5r is required to read H5 counts.")
+  )
   
-      # Reorder to match the input order the caller requested
-      out <- out[match(gene_idx, gene_idx_u), match(cell_idx, cell_idx_u), drop = FALSE]
+  h5 <- hdf5r::H5File$new(h5_path, mode = "r")
+  on.exit(try(h5$close_all(), silent = TRUE), add = TRUE)
+  
+  # 1) Backwards compatible path: dense dataset exists
+  found <- sc_h5_find_dataset(h5, dataset_candidates)
+  if (!is.null(found)) {
+    dset <- found$obj
+    return(dset[gene_idx, cell_idx, drop = FALSE])
+  }
+  
+  # 2) CSC fallback: prepShinyCellPlus format
+  shiny::validate(
+    shiny::need(h5$exists(csc_group), paste0("Missing H5 group: ", csc_group))
+  )
+  grp <- h5[[csc_group]]
+  
+  required <- c("i", "p", "x", "dims")
+  missing <- required[!vapply(required, grp$exists, logical(1))]
+  shiny::validate(
+    shiny::need(length(missing) == 0, paste0(
+      "Could not find a dense counts dataset and CSC pieces are incomplete in ", basename(h5_path), ". ",
+      "Missing in ", csc_group, ": ", paste(missing, collapse = ", ")
+    ))
+  )
+  
+  i <- grp[["i"]][]
+  p <- grp[["p"]][]
+  x <- grp[["x"]][]
+  dims <- grp[["dims"]][]
+  
+  n_genes <- as.integer(dims[1])
+  n_cells <- as.integer(dims[2])
+  
+  gene_idx <- as.integer(gene_idx)
+  cell_idx <- as.integer(cell_idx)
+  
+  shiny::validate(
+    shiny::need(all(gene_idx >= 1 & gene_idx <= n_genes), "gene_idx out of range for sc1counts.h5"),
+    shiny::need(all(cell_idx >= 1 & cell_idx <= n_cells), "cell_idx out of range for sc1counts.h5")
+  )
+  
+  cell_idx_u <- sort(unique(cell_idx))
+  gene_idx_u <- sort(unique(gene_idx))
+  
+  out <- matrix(0, nrow = length(gene_idx_u), ncol = length(cell_idx_u))
+  
+  gene_pos <- match(gene_idx_u, gene_idx_u)
+  
+  for (jj in seq_along(cell_idx_u)) {
+    c <- cell_idx_u[jj]
+    start <- as.integer(p[c]) + 1L
+    end <- as.integer(p[c + 1L])
+    
+    if (end >= start) {
+      rows0 <- i[start:end]
+      vals <- x[start:end]
+      rows1 <- as.integer(rows0) + 1L
       
-      if (isTRUE(attach_dimnames)) {
-        if (grp$exists("genes")) rownames(out) <- grp[["genes"]][][gene_idx]
-        if (grp$exists("cells")) colnames(out) <- grp[["cells"]][][cell_idx]
+      keep <- rows1 %in% gene_idx_u
+      if (any(keep)) {
+        rows_keep <- rows1[keep]
+        pos <- match(rows_keep, gene_idx_u)
+        out[pos, jj] <- vals[keep]
       }
-      
-      out
+    }
+  }
+  
+  out <- out[match(gene_idx, gene_idx_u), match(cell_idx, cell_idx_u), drop = FALSE]
+  
+  if (isTRUE(attach_dimnames)) {
+    if (grp$exists("genes")) rownames(out) <- grp[["genes"]][][gene_idx]
+    if (grp$exists("cells")) colnames(out) <- grp[["cells"]][][cell_idx]
+  }
+  
+  out
 }
 
 
@@ -140,7 +133,8 @@ sc_make_pseudobulk <- function(sc1conf,
                                covar_cols_ui_or_meta = character(0),
                                rep_within_cond = FALSE,
                                chunk_genes = 1000,
-                               dataset_candidates = c("counts/counts", "counts/data", "grp/data")) {
+                               dataset_candidates = c("counts/counts", "counts/data", "grp/data"),
+                               selected_groups = NULL) {
   
   unit_col <- sc_resolve_meta_col(sc1conf, sc1meta, unit_col_ui_or_meta)
   cond_col <- sc_resolve_meta_col(sc1conf, sc1meta, condition_col_ui_or_meta)
@@ -156,6 +150,14 @@ sc_make_pseudobulk <- function(sc1conf,
   keep_cells_idx <- keep_cells_idx[ok]
   unit_vec <- unit_vec[ok]
   cond_vec <- cond_vec[ok]
+  
+  # Filter to only the two selected groups if provided
+  if (!is.null(selected_groups) && length(selected_groups) == 2) {
+    grp_keep <- cond_vec %in% selected_groups
+    keep_cells_idx <- keep_cells_idx[grp_keep]
+    unit_vec <- unit_vec[grp_keep]
+    cond_vec <- cond_vec[grp_keep]
+  }
   
   shiny::validate(shiny::need(length(keep_cells_idx) > 0, "No cells left after removing NA replicate or condition."))
   
@@ -313,31 +315,31 @@ sc_run_voom_limma <- function(pseudobulk,
 
 
 sc_pseudobulk_plots <- function(tt, p_cut = 0.05, fc_up = 1, fc_down = -1) {
-
+  
   shiny::validate(shiny::need(sc_has_pkg("ggplot2"), "ggplot2 is required for plotting."))
-
+  
   tt <- as.data.frame(tt, stringsAsFactors = FALSE)
-
+  
   if (!("gene" %in% names(tt))) tt$gene <- rownames(tt)
   if (!("AveExpr" %in% names(tt))) tt$AveExpr <- NA_real_
   if (!("logFC" %in% names(tt))) tt$logFC <- NA_real_
   if (!("adj.P.Val" %in% names(tt))) tt$adj.P.Val <- NA_real_
-
+  
   ggData <- data.table::as.data.table(tt)
-
+  
   ggData[, gene := as.character(gene)]
   ggData[, AveExpr := as.numeric(AveExpr)]
   ggData[, logFC := as.numeric(logFC)]
   ggData[, adj.P.Val := as.numeric(adj.P.Val)]
-
+  
   ggData[, neglog10FDR := -log10(adj.P.Val)]
-
+  
   ggData[, gene_type := "ns"]
   ggData[!is.na(adj.P.Val) & !is.na(logFC) & adj.P.Val <= p_cut & logFC >= fc_up, gene_type := "up"]
   ggData[!is.na(adj.P.Val) & !is.na(logFC) & adj.P.Val <= p_cut & logFC <= fc_down, gene_type := "down"]
-
+  
   ggData[, sig := !is.na(adj.P.Val) & adj.P.Val <= p_cut]
-
+  
   # MA plot
   p_ma <- ggplot2::ggplot(ggData, ggplot2::aes(x = AveExpr, y = logFC, color = gene_type)) +
     ggplot2::geom_point(size = 1) +
@@ -349,7 +351,7 @@ sc_pseudobulk_plots <- function(tt, p_cut = 0.05, fc_up = 1, fc_down = -1) {
       color = "Class"
     ) +
     ggplot2::geom_hline(yintercept = 0, linetype = "dashed")
-
+  
   # Volcano plot
   p_vol <- ggplot2::ggplot(ggData, ggplot2::aes(x = logFC, y = neglog10FDR, color = gene_type)) +
     ggplot2::geom_point(size = 1) +
@@ -362,8 +364,7 @@ sc_pseudobulk_plots <- function(tt, p_cut = 0.05, fc_up = 1, fc_down = -1) {
     ) +
     ggplot2::geom_hline(yintercept = -log10(p_cut), linetype = "dashed") +
     ggplot2::geom_vline(xintercept = c(fc_down, fc_up), linetype = "dashed")
-
-  # Optional: label a few top hits (kept minimal and safe)
+  
   top_lab <- ggData[order(adj.P.Val)][1:min(10, .N)]
   top_lab <- top_lab[!is.na(gene) & nzchar(gene) & is.finite(neglog10FDR) & is.finite(logFC)]
   if (nrow(top_lab) > 0 && sc_has_pkg("ggrepel")) {
@@ -371,15 +372,15 @@ sc_pseudobulk_plots <- function(tt, p_cut = 0.05, fc_up = 1, fc_down = -1) {
       ggrepel::geom_text_repel(
         data = top_lab,
         ggplot2::aes(label = gene),
-        size = 5,                # increase font size
-        fontface = "bold",       # optional but improves readability
+        size = 5,
+        fontface = "bold",
         max.overlaps = 100,
         box.padding = 0.4,
         point.padding = 0.3,
         segment.size = 0.4
       )
   }
-
+  
   list(
     p_ma = p_ma,
     p_vol = p_vol,
@@ -428,6 +429,9 @@ scPseudobulk_ui <- function(id, sc1conf, sc1def) {
           choices = unique(c(sc1conf$UI)),
           selected = sc1conf[grp == TRUE]$UI[1]
         ),
+        
+        # ── Group comparison selector ──
+        uiOutput(ns("sc1e1_compare_groups_ui")),
         
         uiOutput(ns("sc1e1_reference_ui")),
         
@@ -578,7 +582,8 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       which(!is.na(ct) & (as.character(ct) == as.character(input$sc1e1_celltype_level)))
     })
     
-    output$sc1e1_reference_ui <- renderUI({
+    # ── Condition levels available after cell type filtering ──
+    available_cond_levels <- reactive({
       keep <- filtered_cells_idx()
       req(length(keep) > 0)
       req(input$sc1e1_condition_col)
@@ -587,14 +592,69 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       req(cond_col)
       
       cond_vec <- as.character(sc1meta[[cond_col]][keep])
-      cond_levels <- sort(unique(cond_vec[!is.na(cond_vec) & nzchar(cond_vec)]))
-      req(length(cond_levels) > 1)
+      sort(unique(cond_vec[!is.na(cond_vec) & nzchar(cond_vec)]))
+    })
+    
+    # ── Show group comparison selector when > 2 levels ──
+    output$sc1e1_compare_groups_ui <- renderUI({
+      cond_levels <- available_cond_levels()
+      req(length(cond_levels) >= 2)
+      
+      if (length(cond_levels) == 2) {
+        # Only 2 levels: no need for selection, just show info
+        helpText(
+          style = "color: #666; font-style: italic;",
+          paste0("Comparing: ", cond_levels[1], " vs ", cond_levels[2])
+        )
+      } else {
+        # More than 2 levels: let user pick exactly 2
+        tagList(
+          h5(style = "color: #c0392b; font-weight: bold;",
+             paste0("Condition has ", length(cond_levels), " levels. Select 2 groups to compare:")),
+          selectInput(
+            ns("sc1e1_group1"),
+            "Group 1 (reference / control):",
+            choices = cond_levels,
+            selected = cond_levels[1]
+          ),
+          selectInput(
+            ns("sc1e1_group2"),
+            "Group 2 (treatment / test):",
+            choices = cond_levels,
+            selected = cond_levels[2]
+          )
+        )
+      }
+    })
+    
+    # ── Determine which 2 groups to compare ──
+    selected_groups <- reactive({
+      cond_levels <- available_cond_levels()
+      req(length(cond_levels) >= 2)
+      
+      if (length(cond_levels) == 2) {
+        return(cond_levels)
+      }
+      
+      # More than 2 levels: use user selection
+      req(input$sc1e1_group1, input$sc1e1_group2)
+      shiny::validate(
+        shiny::need(input$sc1e1_group1 != input$sc1e1_group2,
+                    "Please select two different groups to compare.")
+      )
+      c(input$sc1e1_group1, input$sc1e1_group2)
+    })
+    
+    # ── Reference level (defaults to group 1) ──
+    output$sc1e1_reference_ui <- renderUI({
+      grps <- selected_groups()
+      req(length(grps) == 2)
       
       selectInput(
         ns("sc1e1_reference"),
         "Reference condition (control level):",
-        choices = cond_levels,
-        selected = cond_levels[1]
+        choices = grps,
+        selected = grps[1]
       )
     })
     
@@ -612,6 +672,14 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       ok <- !is.na(unit_vec) & nzchar(unit_vec) & !is.na(cond_vec) & nzchar(cond_vec)
       unit_vec <- unit_vec[ok]
       cond_vec <- cond_vec[ok]
+      
+      # Filter to selected groups
+      grps <- selected_groups()
+      if (!is.null(grps) && length(grps) == 2) {
+        grp_keep <- cond_vec %in% grps
+        unit_vec <- unit_vec[grp_keep]
+        cond_vec <- cond_vec[grp_keep]
+      }
       
       unit_key <- unit_vec
       if (isTRUE(input$sc1e1_rep_within_cond)) {
@@ -632,14 +700,33 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       covars <- character(0)
       if (!is.null(input$sc1e1_covars) && length(input$sc1e1_covars) > 0) covars <- input$sc1e1_covars
       if (length(covars) > 0) {
+        # Recompute ok and grp_keep for covariate extraction
+        ok2 <- !is.na(as.character(sc1meta[[unit_col]][keep])) & nzchar(as.character(sc1meta[[unit_col]][keep])) &
+          !is.na(as.character(sc1meta[[cond_col]][keep])) & nzchar(as.character(sc1meta[[cond_col]][keep]))
+        cond_full <- as.character(sc1meta[[cond_col]][keep])[ok2]
+        unit_full <- as.character(sc1meta[[unit_col]][keep])[ok2]
+        keep_ok <- keep[ok2]
+        
+        if (!is.null(grps) && length(grps) == 2) {
+          grp_keep2 <- cond_full %in% grps
+          keep_ok <- keep_ok[grp_keep2]
+          unit_full <- unit_full[grp_keep2]
+          cond_full <- cond_full[grp_keep2]
+        }
+        
+        unit_key2 <- unit_full
+        if (isTRUE(input$sc1e1_rep_within_cond)) {
+          unit_key2 <- paste0(unit_full, "___", cond_full)
+        }
+        
         covar_cols <- vapply(covars, function(z) sc_resolve_meta_col(sc1conf, sc1meta, z), character(1))
         covar_cols <- covar_cols[!is.na(covar_cols) & nzchar(covar_cols)]
         covar_cols <- unique(covar_cols)
         
         if (length(covar_cols) > 0) {
           covar_df <- lapply(covar_cols, function(col) {
-            v <- as.character(sc1meta[[col]][keep][ok])
-            tapply(v, unit_key, function(x) {
+            v <- as.character(sc1meta[[col]][keep_ok])
+            tapply(v, unit_key2, function(x) {
               ux <- unique(x[!is.na(x) & nzchar(x)])
               if (length(ux) == 0) NA_character_
               else if (length(ux) == 1) ux[[1]]
@@ -670,6 +757,14 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       
       unit_vec <- as.character(sc1meta[[unit_col]][keep])
       cond_vec <- as.character(sc1meta[[cond_col]][keep])
+      
+      # Filter to selected groups
+      grps <- selected_groups()
+      if (!is.null(grps) && length(grps) == 2) {
+        grp_keep <- cond_vec %in% grps
+        unit_vec <- unit_vec[grp_keep]
+        cond_vec <- cond_vec[grp_keep]
+      }
       
       tab <- as.data.frame.matrix(table(unit_vec, cond_vec, useNA = "ifany"))
       tab$replicate <- rownames(tab)
@@ -713,8 +808,12 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       fml <- stats::as.formula(input$sc1e1_model)
       mm <- stats::model.matrix(fml, data = df2)
       
+      grps <- selected_groups()
+      
       cat("Formula:\n")
       cat(input$sc1e1_model, "\n\n")
+      cat("Comparing:\n")
+      cat(grps[2], " vs ", grps[1], " (reference)\n\n")
       cat("Reference:\n")
       cat(if (!is.null(input$sc1e1_reference)) input$sc1e1_reference else "None", "\n\n")
       cat("Model matrix columns:\n")
@@ -730,6 +829,10 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       
       keep <- filtered_cells_idx()
       shiny::validate(shiny::need(length(keep) > 0, "No cells after grouping filter."))
+      
+      grps <- selected_groups()
+      shiny::validate(shiny::need(length(grps) == 2, "Please select exactly 2 groups to compare."))
+      shiny::validate(shiny::need(grps[1] != grps[2], "Please select two different groups."))
       
       df_prev <- preview_design()
       shiny::validate(shiny::need(nrow(df_prev) > 1, "No valid pseudobulk units after preview."))
@@ -751,7 +854,8 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
         condition_col_ui_or_meta = input$sc1e1_condition_col,
         covar_cols_ui_or_meta = covars,
         rep_within_cond = isTRUE(input$sc1e1_rep_within_cond),
-        chunk_genes = 1000
+        chunk_genes = 1000,
+        selected_groups = grps
       )
       
       fit <- sc_run_voom_limma(
@@ -778,11 +882,12 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
         return(HTML(paste0("Missing raw counts file: ", basename(h5_counts))))
       }
       if (is.null(res())) return(HTML("Ready"))
+      grps <- selected_groups()
       HTML(paste0(
         "Done. Units: ", nrow(res()$pb$design_df),
         "   Genes: ", nrow(res()$pb$pseudobulk),
-        "   Conditions: ", paste(levels(factor(res()$fit$design_df$condition)), collapse = ", "),
-        "   Reference: ", input$sc1e1_reference
+        "   Comparing: ", grps[2], " vs ", grps[1], " (ref)",
+        "   Conditions: ", paste(levels(factor(res()$fit$design_df$condition)), collapse = ", ")
       ))
     })
     
