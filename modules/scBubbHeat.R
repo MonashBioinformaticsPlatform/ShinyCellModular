@@ -22,12 +22,13 @@ scGeneList <- function(inp, inpGene) {
 
 # Plot gene expression bubbleplot / heatmap
 scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
-                        inpsub1, inpsub2, inpH5, inpGene,
-                        inpScl, inpRow, inpCol,
-                        inpcols, inpfsz,
-                        inpFacet = "None",
-                        inpEngine = c("Classic ggplot", "FlexDotPlot"),
-                        save = FALSE) {
+                       inpsub1, inpsub2, inpH5, inpGene,
+                       inpScl, inpRow, inpCol,
+                       inpcols, inpfsz,
+                       inpFacet = "None",
+                       inpEngine = c("Classic ggplot", "FlexDotPlot"),
+                       x_order = NULL,
+                       save = FALSE) {
   
   inpEngine <- match.arg(inpEngine)
   
@@ -103,6 +104,14 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
   if (isTRUE(inpCol)) {
     hcCol <- ggdendro::dendro_data(as.dendrogram(stats::hclust(stats::dist(t(ggMat)))))
     ggData$grpBy <- factor(ggData$grpBy, levels = hcCol$labels$label)
+  }
+  
+  # Apply manual X ordering (only if not clustering columns)
+  if (!isTRUE(inpCol) && !is.null(x_order) && length(x_order) > 0) {
+    x_order <- x_order[x_order %in% unique(as.character(ggData$grpBy))]
+    if (length(x_order) > 0) {
+      ggData$grpBy <- factor(ggData$grpBy, levels = x_order)
+    }
   }
   
   if (inpPlt == "Bubbleplot") {
@@ -256,6 +265,15 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
         checkboxInput(ns("sc1d1row"), "Cluster rows (genes)", value = TRUE),
         checkboxInput(ns("sc1d1col"), "Cluster columns (samples)", value = FALSE),
         
+        # ── Order X axis (drag-and-drop) ──
+        actionButton(ns("sc1d1togOrderX"), "Order X axis"),
+        conditionalPanel(
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1d1togOrderX")),
+          h5("Drag to reorder X axis groups"),
+          uiOutput(ns("sc1d1xorder.ui")),
+          actionButton(ns("sc1d1xorder_reset"), "Reset to default", class = "btn btn-primary")
+        ),
+        
         br(),
         actionButton(ns("sc1d1togL"), "Filter Cells"),
         conditionalPanel(
@@ -358,6 +376,53 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
       pList3 <<- c(Small = "450px", Medium = "650px", Large = "850px")
     }
     
+    # ── X axis ordering ──
+    x_levels_default <- reactive({
+      req(input$sc1d1grp)
+      x_id <- sc1conf[UI == input$sc1d1grp]$ID
+      req(length(x_id) == 1, !is.na(x_id), x_id != "")
+      levs <- levels(sc1meta[[x_id]])
+      if (is.null(levs)) levs <- sort(unique(as.character(sc1meta[[x_id]])))
+      levs
+    })
+    
+    x_order <- reactiveVal(NULL)
+    
+    observeEvent(x_levels_default(), {
+      x_order(x_levels_default())
+    }, ignoreInit = FALSE)
+    
+    output$sc1d1xorder.ui <- renderUI({
+      req(x_levels_default())
+      ord <- x_order()
+      if (is.null(ord) || length(ord) == 0) ord <- x_levels_default()
+      ord <- ord[ord %in% x_levels_default()]
+      if (length(ord) == 0) ord <- x_levels_default()
+      sortable::rank_list(
+        text = "X axis group order",
+        labels = ord,
+        input_id = ns("sc1d1xorder_rank")
+      )
+    })
+    
+    observeEvent(input$sc1d1xorder_rank, {
+      req(input$sc1d1xorder_rank)
+      x_order(input$sc1d1xorder_rank)
+    })
+    
+    observeEvent(input$sc1d1xorder_reset, {
+      x_order(x_levels_default())
+    })
+    
+    x_order_final <- reactive({
+      levs <- x_levels_default()
+      ord <- x_order()
+      if (is.null(ord) || length(ord) == 0) return(levs)
+      ord <- ord[ord %in% levs]
+      if (length(ord) == 0) levs else ord
+    })
+    
+    # ── Filter cells UI ──
     output$sc1d1sub1.ui <- renderUI({
       req(input$sc1d1sub1)
       sub <- strsplit(sc1conf[UI == input$sc1d1sub1]$fID, "\\|")[[1]]
@@ -381,6 +446,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
                                choices = sub, selected = sub, inline = TRUE)
     })
     
+    # ── Output text ──
     output$sc1d1oupTxt <- renderUI({
       geneList <- scGeneList(input$sc1d1inp, sc1gene)
       
@@ -403,6 +469,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
       HTML(oup)
     })
     
+    # ── Render plot ──
     output$sc1d1oup <- renderPlot({
       
       engine <- if (is.null(input$sc1d1engine) || !nzchar(input$sc1d1engine)) {
@@ -422,7 +489,8 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
         input$sc1d1scl, input$sc1d1row, input$sc1d1col,
         input$sc1d1cols, input$sc1d1fsz,
         inpFacet = facet_var,
-        inpEngine = engine
+        inpEngine = engine,
+        x_order = x_order_final()
       )
       
       if (inherits(p, "grob") || inherits(p, "gtable")) {
@@ -437,6 +505,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
       plotOutput(ns("sc1d1oup"), height = pList3[input$sc1d1psz])
     })
     
+    # ── Download PDF ──
     output$sc1d1oup.pdf <- downloadHandler(
       filename = function() {
         paste0("sc1", input$sc1d1plt, "_", input$sc1d1grp, ".pdf")
@@ -464,12 +533,14 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
             input$sc1d1cols, input$sc1d1fsz,
             inpFacet = facet_var,
             inpEngine = engine,
+            x_order = x_order_final(),
             save = TRUE
           )
         )
       }
     )
     
+    # ── Download PNG ──
     output$sc1d1oup.png <- downloadHandler(
       filename = function() {
         paste0("sc1", input$sc1d1plt, "_", input$sc1d1grp, ".png")
@@ -497,6 +568,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
             input$sc1d1cols, input$sc1d1fsz,
             inpFacet = facet_var,
             inpEngine = engine,
+            x_order = x_order_final(),
             save = TRUE
           )
         )
