@@ -42,11 +42,8 @@ Run the 2 helper functions `prepShinyCellPlus()` and `useShinyCellPlus()`
 ```
 library(ShinyCell) #devtools::install_github("SGDDNB/ShinyCell")
 library(Seurat)
-library(Signac)
-library(dplyr)
 
-
-# Prepare seurat object, checks Key names, creates sc1counts.h5, adds a 3D reduction UMAP
+# Prepare seurat object, checks Key names, creates sc1counts.h5, adds a 3D reduction UMAP, creates a markers list
 cnts<-LoadSeuratRds("seurat_object.Rds")
 
 source("functions/prepShinyCellPlus.R")
