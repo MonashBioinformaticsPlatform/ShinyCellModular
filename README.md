@@ -85,4 +85,7 @@ useShinyCellPlus(
 
 
 ```
-Review Docs for further information on development instructions 
+Review Docs for further information on [development instructions](docs/developer_guide.md)     
+Review Docs for further information on [functions details](docs/functions_details.md)    
+
+[Example of ShinyCellPlus in Single Cell RNAseq](https://bioinformatics3.erc.monash.edu/rsconnect/content/543/)
