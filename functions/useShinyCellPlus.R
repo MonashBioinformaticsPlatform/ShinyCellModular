@@ -24,9 +24,10 @@ useShinyCellPlus <- function(
   data_type_provided <- !is_empty(data_type)
   tabs_provided <- !is_empty(enabled_tabs)
 
+
   
   if (!data_type_provided && !tabs_provided) {
-    stop("You must provide either data_type or enabled_tabs. For example data_type can be 'RNA' or RNA_ATAC or SPATIAL")
+    stop("You must provide either data_type or enabled_tabs. For example data_type can be 'RNA' or RNA_ATAC or SPATIAL. What type of assay do you have?")
   }
   
   
@@ -35,38 +36,73 @@ useShinyCellPlus <- function(
  }
   
   
+  # Tab catalogue: every   allowed_tabs tab ID per data_type 
+  # This is the single source of truth. A tab is only valid for one data_type.
+  # Passing a tab that does not belong to the chosen data_type is an error.
+  
+  module_files <- list.files(file.path(shinycellplus.dir.src, "modules"), recursive = TRUE)
+
+  all_tabs_by_type <- lapply(
+    split(module_files, dirname(module_files)),
+    function(files) {
+      list(
+        tab_id   = tools::file_path_sans_ext(basename(files)),
+        filename = basename(files)
+      )
+    }
+  )
+  
   default_tabs <- NULL
-  assays_vec <- NULL
+  assays_vec   <- NULL
   
   if (data_type_provided) {
-    data_type <- match.arg(data_type, choices = c("RNA", "RNA_ATAC", "SPATIAL"))
+    data_type <- match.arg(data_type, choices = names(all_tabs_by_type))
     
+    
+    ##?? I am not sure if I am using this for anything
     assays_vec <- switch(
       data_type,
       RNA      = "RNA",
       RNA_ATAC = c("RNA", "ATAC"),
       SPATIAL  = c("Spatial", "RNA")
     )
+    ##??
     
-    default_tabs <- switch(
-      data_type,
-      RNA      = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex","violin_boxplot","proportions","bubble_heatmap","pseudobulk"),
-      RNA_ATAC = c("cellinfo_cellinfo","cellinfo_geneexpr","cellinfo3D_cellinfo3D","cellinfo3D_geneexpr3D","genecoex","violin_boxplot","proportions","bubble_heatmap", "multiome_links", "peak_browser", "eregulons_graphs","pseudobulk_eregulons"),
-      SPATIAL  = c("spatial_qc", "spatial_feature")
-    )
+    # Default = all   allowed_tabs tabs for this data_type
+    default_tabs <- all_tabs_by_type[[data_type]]$tab_id
+  }
+  
+  if(!data_type_provided){ data_type="RNA"
+  data_type_provided <- !is_empty(data_type)
+  message("You have not provided data_type, we will assume you have Single Cell RNAseq, data_type set to RNA")
   }
   
   if (!tabs_provided) {
     enabled_tabs <- default_tabs
-  } else if (data_type_provided) {
-    enabled_tabs <- unique(c(default_tabs, enabled_tabs))
-  } else {
-    enabled_tabs <- unique(enabled_tabs)
   }
   
-  message("Enabled tabs: ", paste(enabled_tabs, collapse = ", "))
   
+if (data_type_provided && tabs_provided) {
+    # User supplied specific tabs AND a data_type:
+    # every requested tab must belong to the   allowed_tabs set for that data_type.
+      allowed_tabs      <- all_tabs_by_type[[data_type]]$tab_id
+    bad_tabs     <- setdiff(enabled_tabs,   allowed_tabs)
+
+    if (length(bad_tabs) > 0) {
+      stop(
+        "The following tabs are not valid for data_type = '", data_type, "':\n",
+        "  ", paste(bad_tabs, collapse = ", "), "\n\n",
+        "  allowed_tabs tabs for '", data_type, "':\n",
+        "  ", paste(  allowed_tabs, collapse = ", "), "\n\n",
+        "To use tabs from a different data_type, change data_type accordingly.",
+        call. = FALSE
+      )
+    }
+    enabled_tabs <-     allowed_tabs 
+  } 
   
+  message("Enabled tabs : ", paste(enabled_tabs, collapse = ", "))
+
   if (isTRUE(disable_ui_server)) {
     ui_r <- file.path(shiny.dir, "ui.R")
     server_r <- file.path(shiny.dir, "server.R")
@@ -95,11 +131,14 @@ useShinyCellPlus <- function(
     }
   }
   
-  src_modules <- file.path(shinycellplus.dir.src, "modules/")
+  
+  ###### Here I am trying to copy scripts directly by name AQUI VOYYY
+  src_modules <- file.path(shinycellplus.dir.src, "modules/",data_type,all_tabs_by_type[[data_type]]$filename)
+  src_modules_dir <- file.path(shinycellplus.dir.src, "modules/")
   dst_modules <- file.path(shiny.dir, "modules/")
   
-  if (!dir.exists(src_modules)) {
-    stop("Could not find 'modules' folder in shinycellplus.dir.src: ", src_modules)
+  if (!dir.exists(src_modules_dir)) {
+    stop("Could not find 'modules' folder in shinycellplus.dir.src: ", src_modules_dir)
   }
   
   if (dir.exists(dst_modules) && isTRUE(overwrite_modules)) {
@@ -116,12 +155,18 @@ useShinyCellPlus <- function(
   if (!dir.exists(dst_modules) || isTRUE(overwrite_modules)) {
     if (dir.exists(dst_modules)) unlink(dst_modules, recursive = TRUE, force = TRUE)
     dir.create(dst_modules, recursive = TRUE, showWarnings = FALSE)
+   
+     ok <- file.copy(src_modules, dst_modules, recursive = FALSE)
     
-    ok <- file.copy(src_modules, shiny.dir, recursive = TRUE)
-    if (!ok) stop("Failed to copy modules folder from ", src_modules, " to ", shiny.dir)
-    message("Copied modules/ folder into: ", shiny.dir)
+    failed <- src_modules[!ok]
+    if (length(failed) > 0) {
+      stop("Failed to copy the following files to ", dst_modules, ":\n  ",
+           paste(basename(failed), collapse = "\n  "))
+    }
+    
+    message("Copied ", sum(ok), " module(s) into: ", dst_modules)
   } else {
-    message("Using existing modules/ folder in: ", shiny.dir)
+    message("Using existing modules/ folder in: ", dst_modules)
   }
   
   dir_inputs <- shiny.dir

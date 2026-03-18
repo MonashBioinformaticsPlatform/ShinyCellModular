@@ -1,13 +1,13 @@
 createSCPModuleTemplate <- function(
     module_dir,
-    module_name,
-    tab_id,
+    tab_id, # same as module_name, dont allow spaces [Pending modification]
     tab_title,
     tab_header = tab_title,
     prefix_group = c("a","b","c","d","e"),
     overwrite = FALSE
 ) {
   message("createSCPModuleTemplate called")
+
   flush.console()
   
   prefix_group <- match.arg(prefix_group)
@@ -84,7 +84,7 @@ createSCPModuleTemplate <- function(
   ##########################################################################
   # 3 Prevent filename conflicts
   ##########################################################################
-  
+  module_name=tab_id
   out_file <- file.path(module_dir, paste0(module_name, ".R"))
   if (file.exists(out_file) && !isTRUE(overwrite)) {
     stop("Output file already exists: ", out_file, "\nSet overwrite = TRUE if you want to overwrite it.")
