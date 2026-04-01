@@ -188,7 +188,7 @@ If any artefact is missing later in the app, it is because the corresponding `do
 
 # useShinyCellModular()
 
-`useShinyCellModular()` does not run analysis and does not compute markers, embeddings, or counts. It generates and wires a runnable ShinyCellModular application using already prepared data.
+`useShinyCellModular()` does not run analysis and does not compute markers, embeddings, or counts; you need to run prepShinyCellModular() for those to exist. It generates and wires a runnable ShinyCellModular application using already prepared data.
 
 In plain terms, it takes:
 - `shiny.dir` — a folder containing prepared ShinyCell output files
