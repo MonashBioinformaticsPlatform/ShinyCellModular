@@ -2,8 +2,6 @@
 
 `prepShinyCellModular()` is the preparation step that builds everything the ShinyCellModular app will need. It takes a Seurat object, processes one or more assays (RNA, ATAC), and produces a ready-to-use directory on disk containing `.rds` files and optional extras that `useShinyCellModular()` and the modular tabs can consume.
 
-The key difference from `prepShinyCellPlus()` is the `assays_selected` argument, which allows processing multiple assays in a single call. Each non-RNA assay gets its own output subfolder.
-
 ---
 
 ## Function signature
