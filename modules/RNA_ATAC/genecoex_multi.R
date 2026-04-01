@@ -386,7 +386,7 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "genecoex",
+  id     = "genecoex_multi",
   title  = "Gene Coexpression",
   ui     = scDRcoex_ui,
   server = scDRcoex_server

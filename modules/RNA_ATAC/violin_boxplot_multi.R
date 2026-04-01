@@ -445,7 +445,7 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "violin_boxplot",
+  id     = "violin_boxplot_multi",
   title  = "Violin / BoxPlot",
   ui     = scVioBox_ui,
   server = scVioBox_server

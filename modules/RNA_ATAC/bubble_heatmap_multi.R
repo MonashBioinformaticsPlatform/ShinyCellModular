@@ -20,6 +20,35 @@ scGeneList <- function(inp, inpGene) {
   geneList[]
 }
 
+# Build a dendrogram grob from ggdendro data (orientation: "row" = right side, "col" = top)
+# Row dendrogram sits to the RIGHT of the main plot; gene labels stay on the main plot y-axis.
+# Tree grows left-to-right (root on the left, leaves aligning with the plot rows).
+scDendroGrob <- function(hcData, orientation = c("row", "col"), base_size = 11) {
+  orientation <- match.arg(orientation)
+  seg  <- hcData$segments
+  labs <- hcData$labels
+  if (orientation == "row") {
+    gg <- ggplot2::ggplot() +
+      ggplot2::geom_segment(data = seg,
+                            ggplot2::aes(x = y, y = x, xend = yend, yend = xend)) +
+      ggplot2::scale_y_continuous(breaks = labs$x, labels = labs$label,
+                                  expand = c(0, 0.5)) +
+      ggplot2::scale_x_continuous(expand = c(0.05, 0)) +   # root left, leaves right
+      ggplot2::theme_void(base_size = base_size) +
+      ggplot2::theme(plot.margin = ggplot2::margin(0, 4, 0, 0))  # gap on right only
+  } else {
+    gg <- ggplot2::ggplot() +
+      ggplot2::geom_segment(data = seg,
+                            ggplot2::aes(x = x, y = y, xend = xend, yend = yend)) +
+      ggplot2::scale_x_continuous(breaks = labs$x, labels = labs$label,
+                                  expand = c(0.05, 0)) +
+      ggplot2::scale_y_continuous(expand = c(0.05, 0)) +
+      ggplot2::theme_void(base_size = base_size) +
+      ggplot2::theme(plot.margin = ggplot2::margin(4, 0, 0, 0))
+  }
+  ggplot2::ggplotGrob(gg)
+}
+
 # Plot gene expression bubbleplot / heatmap
 scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
                        inpsub1, inpsub2, inpH5, inpGene,
@@ -28,6 +57,9 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
                        inpFacet = "None",
                        inpEngine = c("Classic ggplot", "FlexDotPlot"),
                        x_order = NULL,
+                       # ── Dendrograms ──
+                       inpDendRow = FALSE,
+                       inpDendCol = FALSE,
                        save = FALSE) {
   
   inpEngine <- match.arg(inpEngine)
@@ -37,7 +69,7 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
   geneList <- scGeneList(inp, inpGene)
   geneList <- geneList[present == TRUE]
   
-  shiny::validate(shiny::need(nrow(geneList) <= 50, "More than 50 genes to plot. Please reduce the gene list."))
+  #shiny::validate(shiny::need(nrow(geneList) <= 50, "More than 50 genes to plot. Please reduce the gene list."))
   shiny::validate(shiny::need(nrow(geneList) > 1, "Please input at least 2 genes to plot."))
   
   # Determine whether faceting is active
@@ -98,12 +130,15 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
     hcRow <- ggdendro::dendro_data(as.dendrogram(stats::hclust(stats::dist(ggMat))))
     ggData$geneName <- factor(ggData$geneName, levels = hcRow$labels$label)
   } else {
+    hcRow <- NULL   # needed for dendrogram guard below
     ggData$geneName <- factor(ggData$geneName, levels = rev(geneList$gene))
   }
   
   if (isTRUE(inpCol)) {
     hcCol <- ggdendro::dendro_data(as.dendrogram(stats::hclust(stats::dist(t(ggMat)))))
     ggData$grpBy <- factor(ggData$grpBy, levels = hcCol$labels$label)
+  } else {
+    hcCol <- NULL   # needed for dendrogram guard below
   }
   
   # Apply manual X ordering (only if not clustering columns)
@@ -206,10 +241,54 @@ scBubbHeat <- function(inpConf, inpMeta, inp, inpGrp, inpPlt,
   ggLeg <- g_legend(ggOut)
   ggOut <- ggOut + ggplot2::theme(legend.position = "none")
   
-  if (!isTRUE(save)) {
-    ggOut <- gridExtra::grid.arrange(ggOut, ggLeg, heights = c(7, 2), layout_matrix = rbind(c(1), c(2)))
+  # ── Assemble layout: optionally attach dendrograms around the main plot ──
+  # Strategy: use gtable surgery so dendrograms span ONLY the panel rows/cols of the
+  # main plot gtable, not the axis-label rows. This prevents the dendrogram from being
+  # allocated extra height/width that belongs to tick labels or axis titles.
+  showDendRow <- isTRUE(inpDendRow) && !is.null(hcRow)
+  showDendCol <- isTRUE(inpDendCol) && !is.null(hcCol)
+  
+  if (!showDendRow && !showDendCol) {
+    # No dendrograms: original two-grob layout unchanged
+    ggOut <- gridExtra::arrangeGrob(ggOut, ggLeg,
+                                    heights = c(7, 2),
+                                    layout_matrix = rbind(c(1), c(2)))
   } else {
-    ggOut <- gridExtra::arrangeGrob(ggOut, ggLeg, heights = c(7, 2), layout_matrix = rbind(c(1), c(2)))
+    # Convert main plot to gtable so we can inspect row/col structure
+    gt <- ggplot2::ggplotGrob(ggOut)
+    
+    # Find the panel row(s) and col(s) in the gtable (named "panel" in the layout)
+    panel_rows <- unique(gt$layout$t[gt$layout$name == "panel"])
+    panel_cols <- unique(gt$layout$l[gt$layout$name == "panel"])
+    
+    if (showDendRow) {
+      dendR <- scDendroGrob(hcRow, "row", base_size = sList[inpfsz])
+      # Add a new column to the right, width proportional to the plot null unit
+      gt <- gtable::gtable_add_cols(gt, widths = grid::unit(0.2, "null"), pos = -1)
+      # Insert dendrogram grob spanning ONLY the panel rows
+      gt <- gtable::gtable_add_grob(gt, dendR,
+                                    t = min(panel_rows), b = max(panel_rows),
+                                    l = ncol(gt), r = ncol(gt),
+                                    clip = "off", name = "dendro-row")
+    }
+    
+    if (showDendCol) {
+      dendC <- scDendroGrob(hcCol, "col", base_size = sList[inpfsz])
+      # Add a new row above the gtable
+      gt <- gtable::gtable_add_rows(gt, heights = grid::unit(0.15, "null"), pos = 0)
+      # Panel cols may have shifted by the column addition above; re-query
+      panel_cols_now <- unique(gt$layout$l[gt$layout$name == "panel"])
+      # Insert dendrogram grob spanning ONLY the panel cols, in the new top row
+      gt <- gtable::gtable_add_grob(gt, dendC,
+                                    t = 1, b = 1,
+                                    l = min(panel_cols_now), r = max(panel_cols_now),
+                                    clip = "off", name = "dendro-col")
+    }
+    
+    # Re-attach legend below using arrangeGrob
+    ggOut <- gridExtra::arrangeGrob(gt, ggLeg,
+                                    heights = c(7, 2),
+                                    layout_matrix = rbind(c(1), c(2)))
   }
   
   ggOut
@@ -236,7 +315,7 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
         textAreaInput(
           ns("sc1d1inp"),
           HTML("List of gene names <br />
-               (Max 50 genes, separated <br />
+               ( separated <br />
                by , or ; or newline):"),
           height = "200px",
           value = paste0(sc1def$genes, collapse = ", ")
@@ -264,6 +343,16 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
         checkboxInput(ns("sc1d1scl"), "Scale gene expression", value = TRUE),
         checkboxInput(ns("sc1d1row"), "Cluster rows (genes)", value = TRUE),
         checkboxInput(ns("sc1d1col"), "Cluster columns (samples)", value = FALSE),
+        
+        # ── NEW: Dendrogram toggles (visible only when clustering is active) ──
+        conditionalPanel(
+          condition = sprintf("input['%s'] == true", ns("sc1d1row")),
+          checkboxInput(ns("sc1d1dendRow"), "Show row dendrogram", value = FALSE)
+        ),
+        conditionalPanel(
+          condition = sprintf("input['%s'] == true", ns("sc1d1col")),
+          checkboxInput(ns("sc1d1dendCol"), "Show column dendrogram", value = FALSE)
+        ),
         
         # ── Order X axis (drag-and-drop) ──
         actionButton(ns("sc1d1togOrderX"), "Order X axis"),
@@ -314,6 +403,17 @@ scBubbHeat_ui <- function(id, sc1conf, sc1def) {
             choices = c("Small", "Medium", "Large"),
             selected = "Medium", inline = TRUE
           ),
+          
+          # ── NEW: Manual plot size override (useful for large gene lists) ──
+          checkboxInput(ns("sc1d1manualSize"), "Set custom plot size", value = FALSE),
+          conditionalPanel(
+            condition = sprintf("input['%s'] == true", ns("sc1d1manualSize")),
+            numericInput(ns("sc1d1manualH"), "Plot height (px):",
+                         value = 650, min = 200, max = 4000, step = 50, width = "160px"),
+            numericInput(ns("sc1d1manualW"), "Plot width (px):",
+                         value = 900, min = 200, max = 4000, step = 50, width = "160px")
+          ),
+          
           radioButtons(
             ns("sc1d1fsz"), "Font size:",
             choices = c("Small", "Medium", "Large"),
@@ -450,9 +550,9 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
     output$sc1d1oupTxt <- renderUI({
       geneList <- scGeneList(input$sc1d1inp, sc1gene)
       
-      if (nrow(geneList) > 50) {
-        return(HTML("More than 50 input genes. Please reduce the gene list."))
-      }
+      #if (nrow(geneList) > 50) {
+      # return(HTML("More than 50 input genes. Please reduce the gene list."))
+      #}
       
       ok <- geneList[present == TRUE]
       notok <- geneList[present == FALSE]
@@ -490,7 +590,10 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
         input$sc1d1cols, input$sc1d1fsz,
         inpFacet = facet_var,
         inpEngine = engine,
-        x_order = x_order_final()
+        x_order = x_order_final(),
+        # ── Dendrograms ──
+        inpDendRow = isTRUE(input$sc1d1dendRow),
+        inpDendCol = isTRUE(input$sc1d1dendCol)
       )
       
       if (inherits(p, "grob") || inherits(p, "gtable")) {
@@ -501,8 +604,16 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
       }
     })
     
+    # ── Plot panel size: preset or manual override ──
     output$sc1d1oup.ui <- renderUI({
-      plotOutput(ns("sc1d1oup"), height = pList3[input$sc1d1psz])
+      if (isTRUE(input$sc1d1manualSize) &&
+          !is.null(input$sc1d1manualH) && !is.null(input$sc1d1manualW)) {
+        plotOutput(ns("sc1d1oup"),
+                   height = paste0(input$sc1d1manualH, "px"),
+                   width  = paste0(input$sc1d1manualW, "px"))
+      } else {
+        plotOutput(ns("sc1d1oup"), height = pList3[input$sc1d1psz])
+      }
     })
     
     # ── Download PDF ──
@@ -534,6 +645,9 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
             inpFacet = facet_var,
             inpEngine = engine,
             x_order = x_order_final(),
+            # ── Dendrograms ──
+            inpDendRow = isTRUE(input$sc1d1dendRow),
+            inpDendCol = isTRUE(input$sc1d1dendCol),
             save = TRUE
           )
         )
@@ -569,6 +683,9 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
             inpFacet = facet_var,
             inpEngine = engine,
             x_order = x_order_final(),
+            # ── Dendrograms ──
+            inpDendRow = isTRUE(input$sc1d1dendRow),
+            inpDendCol = isTRUE(input$sc1d1dendCol),
             save = TRUE
           )
         )
@@ -581,7 +698,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "bubble_heatmap",
+  id     = "bubble_heatmap_multi",
   title  = "Bubble Plot / Heatmap ",
   ui     = scBubbHeat_ui,
   server = scBubbHeat_server

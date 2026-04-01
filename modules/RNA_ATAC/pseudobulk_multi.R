@@ -1118,7 +1118,7 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "pseudobulk",
+  id     = "pseudobulk_multi",
   title  = "Pseudobulk DE",
   ui     = scPseudobulk_ui,
   server = scPseudobulk_server
