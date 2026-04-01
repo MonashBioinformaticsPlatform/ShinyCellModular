@@ -361,7 +361,7 @@ scProp_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "proportions",
+  id     = "proportions_multi",
   title  = "Cell Proportions",
   ui     = scProp_ui,
   server = scProp_server

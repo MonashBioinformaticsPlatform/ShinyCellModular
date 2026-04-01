@@ -1,5 +1,5 @@
 # This tab is base in the orginal "cellinfo_geneexpr" in ShinyCell
-# id     = "cellinfo_geneexpr",
+# id     = "cellinfo_geneexpr_multi",
 # title  = "CellInfo vs GeneExpr",
 
 ############################################### Functions ############################################
@@ -298,18 +298,25 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
       ),
       
       column(
-        6, h4("Gene expression"),
+        6, h4("Gene / Peak expression"),
+        
+        # assay selector — switches the feature selectize between RNA genes and ATAC peaks
+        radioButtons(ns("sc1a1assay"), "Assay:",
+                     choices = c("RNA" = "RNA", "ATAC" = "ATAC"),
+                     selected = "RNA", inline = TRUE),
+        
         fluidRow(
           column(
             6,
-            selectInput(ns("sc1a1inp2"), "Gene name:", choices = NULL) %>%
+            # feature selectize — repopulated by the server when assay changes
+            selectInput(ns("sc1a1inp2"), "Feature:", choices = NULL) %>%
               helper(
                 type = "inline", size = "m", fade = TRUE,
-                title = "Gene expression to colour cells by",
+                title = "Feature to colour cells by",
                 content = c(
-                  "Select gene to colour cells by gene expression",
+                  "Select gene (RNA) or peak (ATAC) to colour cells",
                   paste0(
-                    "Gene expression are coloured in a ",
+                    "Expression / accessibility are coloured in a ",
                     "White-Red colour scheme which can be ",
                     "changed in the plot controls"
                   )
@@ -335,7 +342,7 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
         downloadButton(ns("sc1a1oup2_pdf"), "Download PDF"),
         downloadButton(ns("sc1a1oup2_png"), "Download PNG"),
         br(),
-
+        
         div(
           style = "display:inline-block",
           numericInput(ns("sc1a1oup2_h"), "PDF / PNG height:", width = "138px", min = 4, max = 20, value = 6, step = 0.5)
@@ -346,7 +353,6 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
         ),
         br(),
         
-        ######################## ???MARKERGENES
         actionButton(ns("sc1a1tog10"), "Show Marker Genes Per Cluster"),
         
         conditionalPanel(
@@ -384,8 +390,6 @@ scDRnum_ui <- function(id, sc1conf, sc1def) {
           
           dataTableOutput(ns("sc1a1_dtmarkers"))
         )
-        
-        ##############################
       )
     )
   )
@@ -400,10 +404,37 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
     
     ### For all tags and Server-side selectize 
     observe_helpers() 
-    optCrt="{ option_create: function(data,escape) {return('<div class=\"create\"><strong>' + '</strong></div>');} }" 
-    updateSelectizeInput(session, "sc1a1inp2", choices = names(sc1gene), server = TRUE, 
-                         selected = sc1def$gene1, options = list( 
-                           maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
+    optCrt="{ option_create: function(data,escape) {return('<div class=\"create\"><strong>' + '</strong></div>');} }"
+    
+    # load ATAC data from dir_inputs/ATAC/ — same file layout as RNA
+    sc1gene_atac <- readRDS(file.path(dir_inputs, "ATAC", "sc1gene.rds"))
+    sc1conf_atac <- readRDS(file.path(dir_inputs, "ATAC", "sc1conf.rds"))
+    sc1def_atac  <- readRDS(file.path(dir_inputs, "ATAC", "sc1def.rds"))
+    sc1meta_atac <- readRDS(file.path(dir_inputs, "ATAC", "sc1meta.rds"))
+    
+    # only h5 path is reactive — it determines which file is opened per plot call
+    # small objects (gene list, conf, def) are read once at startup and accessed
+    # via plain functions so there is no reactive overhead for in-memory lookups
+    active_h5 <- reactive({
+      if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC")
+        file.path(dir_inputs, "ATAC", "sc1gexpr.h5")
+      else
+        file.path(dir_inputs, "sc1gexpr.h5")
+    })
+    cur_gene <- function() if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC") sc1gene_atac else sc1gene
+    cur_conf <- function() if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC") sc1conf_atac else sc1conf
+    cur_def  <- function() if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC") sc1def_atac  else sc1def
+    
+    # repopulate the feature selectize when assay changes
+    observe({
+      updateSelectizeInput(session, "sc1a1inp2",
+                           choices  = names(cur_gene()),
+                           server   = TRUE,
+                           selected = cur_def()$gene1,
+                           options  = list(maxOptions = 7, create = TRUE,
+                                           persist = TRUE, render = I(optCrt)))
+    })
+    
     updateSelectizeInput(session, "sc1a3inp1", choices = names(sc1gene), server = TRUE, 
                          selected = sc1def$gene1, options = list( 
                            maxOptions = 7, create = TRUE, persist = TRUE, render = I(optCrt))) 
@@ -422,14 +453,10 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
                            maxOptions = length(sc1conf[is.na(fID)]$UI) + 3, 
                            create = TRUE, persist = TRUE, render = I(optCrt))) 
     
-    
-    # Needed for plot sizes (ShinyCell defaults)
-    # If pList exists globally (from sourced ShinyCell helpers), this does nothing.
     if (!exists("pList", inherits = TRUE)) {
       pList <<- c(Small = "350px", Medium = "550px", Large = "750px")
     }
     
-    # Required: scDRcell and scDRgene must exist (from other sourced ShinyCell modules)
     if (!exists("scDRcell", inherits = TRUE)) {
       stop("scDRcell() is not available. Source the ShinyCell function file that defines scDRcell (often scDRcell.R).")
     }
@@ -475,7 +502,6 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
       )
     })
     
-    # Render plot 1 (cell info) and provide the UI container
     output$sc1a1oup1 <- renderPlot({
       req(input$sc1a1drX, input$sc1a1drY, input$sc1a1inp1)
       scDRcell(
@@ -535,15 +561,15 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
       }
     )
     
-    # Render plot 2 (gene expression) and provide the UI container
+    # plot 2 uses active_h5() and cur_gene() so it switches with the assay radio
     output$sc1a1oup2 <- renderPlot({
       req(input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2)
       scDRgene(
         sc1conf, sc1meta,
         input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2,
         input$sc1a1sub1, input$sc1a1sub2,
-        file.path(dir_inputs, "sc1gexpr.h5"),
-        sc1gene,
+        active_h5(),
+        cur_gene(),
         input$sc1a1siz, input$sc1a1col2, input$sc1a1ord2,
         input$sc1a1fsz, input$sc1a1asp, input$sc1a1txt
       )
@@ -569,8 +595,8 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
             sc1conf, sc1meta,
             input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2,
             input$sc1a1sub1, input$sc1a1sub2,
-            file.path(dir_inputs, "sc1gexpr.h5"),
-            sc1gene,
+            active_h5(),
+            cur_gene(),
             input$sc1a1siz, input$sc1a1col2, input$sc1a1ord2,
             input$sc1a1fsz, input$sc1a1asp, input$sc1a1txt
           )
@@ -592,8 +618,8 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
             sc1conf, sc1meta,
             input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2,
             input$sc1a1sub1, input$sc1a1sub2,
-            file.path(dir_inputs, "sc1gexpr.h5"),
-            sc1gene,
+            active_h5(),
+            cur_gene(),
             input$sc1a1siz, input$sc1a1col2, input$sc1a1ord2,
             input$sc1a1fsz, input$sc1a1asp, input$sc1a1txt
           )
@@ -601,14 +627,13 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
       }
     )
     
-    # Table (already present)
     output$sc1a1_dt <- renderDataTable({
       ggData <- scDRnum(
         sc1conf, sc1meta,
         input$sc1a1inp1, input$sc1a1inp2,
         input$sc1a1sub1, input$sc1a1sub2,
-        file.path(dir_inputs, "sc1gexpr.h5"),
-        sc1gene,
+        active_h5(),
+        cur_gene(),
         input$sc1a1splt
       )
       
@@ -620,140 +645,137 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
       ) %>%
         formatRound(columns = c("pctExpress"), digits = 2)
     })
-    ################################ ???
-    # Table (Marker Genes)
-   
-    output$sc1a1_dtmarkers <-  renderDT(server = FALSE, {
+    
+    output$sc1a1_dtmarkers <- renderDT(server = FALSE, {
+      
+      req(markers_list)
+      
+      resolution_selection <- paste0(input$resolution)
+      top_selection <- input$top
+      
+      ds <- arrow::open_dataset(markers_list)
+      
+      if (isTRUE(input$show_all)) {
+        df <- ds |>
+          dplyr::filter(annotation == resolution_selection) |>
+          dplyr::collect()
         
-        req(markers_list)
-     
-        resolution_selection <- paste0(input$resolution)
-        top_selection <- input$top
+        DT::datatable(
+          df,
+          extensions = c("Buttons"),
+          options = list(
+            dom = "Bfrtip",
+            buttons = list(
+              list(
+                extend = "csv",
+                text = "Download Full Results",
+                filename = paste0("MarkersList_", resolution_selection),
+                exportOptions = list(modifier = list(page = "all"))
+              )
+            )
+          )
+        )
+      } else {
+        top_gene <- as.integer(input$top)
+        rank_by_selection <- input$sc1a1splt_test
         
-        ds <- arrow::open_dataset(markers_list)
+        observeEvent(markers_list, {
+          ds <- arrow::open_dataset(markers_list)
+          message("marker columns: ", paste(names(ds), collapse = ", "))
+        })
         
-        if (isTRUE(input$show_all)) {
+        if (rank_by_selection == "logFC and Adj Pval (Wilcox)") {
+          
           df <- ds |>
             dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, logFC, padj) |>
             dplyr::collect()
           
-          DT::datatable(
-            df,
-            extensions = c("Buttons"),
-            options = list(
-              dom = "Bfrtip",
-              buttons = list(
-                list(
-                  extend = "csv",
-                  text = "Download Full Results",
-                  filename = paste0("MarkersList_", resolution_selection),
-                  exportOptions = list(modifier = list(page = "all"))
-                )
-              )
-            )
-          )
+          shiny::validate(need(all(c("padj", "logFC", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (padj, logFC, group)."))
+          
+          df <- df |>
+            dplyr::filter(padj < 0.05) |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(logFC), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else if (rank_by_selection == "AUC (ROC)") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, auc, pct_in, pct_out) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("auc", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (auc, group)."))
+          
+          df <- df |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(auc), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else if (rank_by_selection == "Average Expression") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, avgExpr, pct_in, pct_out) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("avgExpr", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (avgExpr, group)."))
+          
+          df <- df |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(avgExpr), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else if (rank_by_selection == "% Expression In Cluster") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, pct_in, pct_out) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("pct_in", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (pct_in, group)."))
+          
+          df <- df |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(pct_in), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
         } else {
-          top_gene <- as.integer(input$top)
-          rank_by_selection<-input$sc1a1splt_test
-          
-          observeEvent(markers_list, {
-            ds <- arrow::open_dataset(markers_list)
-            message("marker columns: ", paste(names(ds), collapse = ", "))
-          })
-          
-          if (rank_by_selection == "logFC and Adj Pval (Wilcox)") {
-            
-            df <- ds |>
-              dplyr::filter(annotation == resolution_selection) |>
-              dplyr::select(feature, group, logFC, padj) |>
-              dplyr::collect()
-            
-            shiny::validate(need(all(c("padj", "logFC", "group") %in% names(df)),
-                          "Expected columns not found. Check your parquet columns (padj, logFC, group)."))
-            
-            df <- df |>
-              dplyr::filter(padj < 0.05) |>
-              dplyr::group_by(group) |>
-              dplyr::arrange(dplyr::desc(logFC), .by_group = TRUE) |>
-              dplyr::slice_head(n = top_gene)
-            
-          } else if (rank_by_selection == "AUC (ROC)") {
-            
-            df <- ds |>
-              dplyr::filter(annotation == resolution_selection) |>
-              dplyr::select(feature, group, auc, pct_in, pct_out) |>
-              dplyr::collect()
-            
-            shiny::validate(need(all(c("auc", "group") %in% names(df)),
-                          "Expected columns not found. Check your parquet columns (auc, group)."))
-            
-            df <- df |>
-              dplyr::group_by(group) |>
-              dplyr::arrange(dplyr::desc(auc), .by_group = TRUE) |>
-              dplyr::slice_head(n = top_gene)
-            
-          } else if (rank_by_selection == "Average Expression") {
-            
-            df <- ds |>
-              dplyr::filter(annotation == resolution_selection) |>
-              dplyr::select(feature, group, avgExpr, pct_in, pct_out) |>
-              dplyr::collect()
-            
-            shiny::validate(need(all(c("avgExpr", "group") %in% names(df)),
-                          "Expected columns not found. Check your parquet columns (avgExpr, group)."))
-            
-            df <- df |>
-              dplyr::group_by(group) |>
-              dplyr::arrange(dplyr::desc(avgExpr), .by_group = TRUE) |>
-              dplyr::slice_head(n = top_gene)
-            
-          } else if (rank_by_selection == "% Expression In Cluster") {
-            
-            df <- ds |>
-              dplyr::filter(annotation == resolution_selection) |>
-              dplyr::select(feature, group, pct_in, pct_out) |>
-              dplyr::collect()
-            
-            shiny::validate(need(all(c("pct_in", "group") %in% names(df)),
-                          "Expected columns not found. Check your parquet columns (pct_in, group)."))
-            
-            df <- df |>
-              dplyr::group_by(group) |>
-              dplyr::arrange(dplyr::desc(pct_in), .by_group = TRUE) |>
-              dplyr::slice_head(n = top_gene)
-            
-          } else {
-            shiny::validate(need(FALSE, paste0("Unknown ranking option: ", rank_by_selection)))
-          }
-          
-          shiny::validate(need(!is.null(df) && nrow(df) > 0, "No rows after filtering. Try a different resolution or relax filters."))
-          
-          DT::datatable(
-            df,
-            extensions = c("Buttons"),
-            options = list(
-              dom = "Bfrtip",
-              buttons = list(
-                list(
-                  extend = "csv",
-                  text = "Download Top Genes",
-                  filename = paste0("SubsetMarkersList_top",top_gene,"_", resolution_selection),
-                  exportOptions = list(modifier = list(page = "all"))
-                )
+          shiny::validate(need(FALSE, paste0("Unknown ranking option: ", rank_by_selection)))
+        }
+        
+        shiny::validate(need(!is.null(df) && nrow(df) > 0, "No rows after filtering. Try a different resolution or relax filters."))
+        
+        DT::datatable(
+          df,
+          extensions = c("Buttons"),
+          options = list(
+            dom = "Bfrtip",
+            buttons = list(
+              list(
+                extend = "csv",
+                text = "Download Top Genes",
+                filename = paste0("SubsetMarkersList_top",top_gene,"_", resolution_selection),
+                exportOptions = list(modifier = list(page = "all"))
               )
             )
           )
-        }
-      })
-      
-    ################################ 
+        )
+      }
+    })
+    
   })}
 
 
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "cellinfo_geneexpr",
+  id     = "cellinfo_geneexpr_multi",
   title  = "CellInfo vs GeneExpr",
   ui     = scDRnum_ui,
   server = scDRnum_server

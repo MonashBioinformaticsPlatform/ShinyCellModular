@@ -661,7 +661,7 @@ scDRnum3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "cellinfo3D_geneexpr3D",
+  id     = "cellinfo3D_geneexpr3D_multi",
   title  = "CellInfo3D vs GeneExpr3D",
   ui     = scDRnum3D_ui,
   server = scDRnum3D_server

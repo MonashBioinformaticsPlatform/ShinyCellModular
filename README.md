@@ -1,6 +1,9 @@
-# ShinyCellPlus
+# ShinyCellModular
 ***
-**ShinyCellPlus** is a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). Each module consists on a tab in the app. Each module is created individually and is it selfcontained. **ShinyCellPlus** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise.
+**ShinyCellModular** is a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). Each module consists on a tab in the app. Each module is created individually and is it selfcontained. **ShinyCellModular** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise. [Example of ShinyCellPlus in Single Cell RNAseq](https://bioinformatics3.erc.monash.edu/rsconnect/content/543/)
+
+Review Docs for further information on [functions details](docs/functions_details.md)    
+Review Docs for further information on [development instructions](docs/developer_guide.md)     
 
 ## Features
 
@@ -20,7 +23,7 @@
 Clone this repository
 
 ```
-git clone https://github.com/MonashBioinformaticsPlatform/ShinyCellPlus.git
+git clone https://github.com/MonashBioinformaticsPlatform/ShinyCellModular.git
 ```
 
 Open the **.Rproj** file
@@ -33,41 +36,47 @@ renv::restore()
 ```
 
 
-Run the 2 helper functions `prepShinyCellPlus()` and `useShinyCellPlus()`
+Run the 2 helper functions `prepShinyCellModular()` and `useShinyCellModular()`
 
 
 
-### 2. `prepShinyCellPlus()`
+### 2. `prepShinyCellModular()`
 
 ```
 library(ShinyCell) #devtools::install_github("SGDDNB/ShinyCell")
 library(Seurat)
+library(Signac)
+library(dplyr)
 
-# Prepare seurat object, checks Key names, creates sc1counts.h5, adds a 3D reduction UMAP, creates a markers list
+
+# Prepare seurat object, checks Key names, creates sc1counts.h5, adds a 3D reduction UMAP
 cnts<-LoadSeuratRds("seurat_object.Rds")
 
-source("functions/prepShinyCellPlus.R")
+source("functions/prepShinyCellModular.R")
 
-prepShinyCellPlus(seurat_rds = "seurat_obj.rds", # or seurat_obj = cnts
-                  out_dir = "testing_data", 
+prepShinyCellModular(seurat_rds = "seurat_object.rds",
+                  out_dir = "testing_data_RNA", 
+                  assays_selected = "RNA",
                   do_umap3d = TRUE,  
                   do_markers= TRUE,   
-                  markers_res_pattern = "RNA_snn_res")
+                  markers_res_pattern = "wsnn_res",
+                  )
+
 
 ```
 
 
-### 3.`useShinyCellPlus()`
+### 3.`useShinyCellModular()`
 
 ```
 
 # Create a new app.R with the modified ShinyCell tabs
 
-source("functions/useShinyCellPlus.R")
+source("functions/useShinyCellModular.R")
 
-useShinyCellPlus(
+useShinyCellModular(
     shiny.dir="testing_data/",
-    shinycellplus.dir.src="~/ShinyCellPlus/",
+    shinycellmodular.dir.src="~/ShinyCellModular/",
     rsconnect.deploy = FALSE,
     data_type = "",
     enabled_tabs = c("cellinfo_cellinfo",
@@ -85,7 +94,5 @@ useShinyCellPlus(
 
 
 ```
-Review Docs for further information on [development instructions](docs/developer_guide.md)     
-Review Docs for further information on [functions details](docs/functions_details.md)    
 
-[Example of ShinyCellPlus in Single Cell RNAseq](https://bioinformatics3.erc.monash.edu/rsconnect/content/543/)
+
