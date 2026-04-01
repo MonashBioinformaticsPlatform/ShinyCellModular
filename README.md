@@ -11,7 +11,7 @@ Review Docs for further information on [development instructions](docs/developer
 - Supports scRNAseq, ATAC, and multimodal datasets
 - Fast HDF5 on-demand loading
 - Publication‑ready plots (PNG/PDF export)
-- Extended visualisation tabs (UMAP, 3D UMAP, violin, bubble, heatmap, coexpression, AUC marker genes)
+- Extended visualisation tabs (UMAP, 3D UMAP, violin, bubble, heatmap, coexpression, AUC marker genes, pseudobulking)
 - Cell subsetting and conditional plotting
 - Easy integration with new modules via a registry system
 
