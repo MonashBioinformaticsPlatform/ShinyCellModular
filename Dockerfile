@@ -15,37 +15,37 @@ WORKDIR /app
 ARG REPO_URL
 RUN git clone ${REPO_URL} .
 
-# disable renv autoloader and set paths before any R execution
-RUN echo 'RENV_CONFIG_AUTOLOADER_ENABLED=FALSE' >> /usr/local/lib/R/etc/Renviron
-
-# install arrow as system package to avoid compile issues and path complications
-RUN R -e "install.packages('arrow', \
-    repos='https://packagemanager.posit.co/cran/latest', \
+# install renv and arrow to system library first
+RUN R -e "install.packages( \
+    'https://cran.r-project.org/src/contrib/Archive/renv/renv_1.1.4.tar.gz', \
+    repos=NULL, type='source', \
     lib='/usr/local/lib/R/site-library')"
 
-# restore all packages into explicit path, autoloader disabled
 RUN R -e " \
     options(renv.config.autoloader.enabled=FALSE); \
+    renv::install('arrow', \
+        library='/app/renv/library', \
+        repos='https://packagemanager.posit.co/cran/latest'); \
     renv::restore( \
         library='/app/renv/library', \
         exclude='arrow', \
         prompt=FALSE \
     )" 2>&1 | tee /renv_restore.log
 
-# resolve the exact library path and write to Renviron + .Rprofile
+# write Renviron and .Rprofile
 RUN R -e " \
-    base <- '/app/renv/library'; \
-    l1 <- list.files(base, full.names=TRUE)[1]; \
-    l2 <- list.files(l1, full.names=TRUE)[1]; \
-    lib <- list.files(l2, full.names=TRUE)[1]; \
+    lib <- list.files('/app/renv/library', recursive=TRUE, \
+        full.names=TRUE, include.dirs=TRUE); \
+    lib <- lib[grepl('x86_64-pc-linux-gnu$', lib)][1]; \
     stopifnot(dir.exists(lib)); \
-    cat('Resolved lib path:', lib, '\n'); \
-    write(paste0('R_LIBS_USER=', lib), \
+    cat('lib path:', lib, '\n'); \
+    write(c(paste0('R_LIBS_USER=', lib), \
+            'R_PROFILE_USER=/app/.Rprofile'), \
         '/usr/local/lib/R/etc/Renviron', append=TRUE); \
-    write(paste0('R_PROFILE_USER=/app/.Rprofile'), \
-        '/usr/local/lib/R/etc/Renviron', append=TRUE); \
-    writeLines(c( \
-        'if (file.exists(\"/app/functions/prepShinyCellModular.R\")) source(\"/app/functions/prepShinyCellModular.R\")' \
-    ), '/app/.Rprofile')"
+    writeLines( \
+        'if (file.exists(\"/app/functions/prepShinyCellModular.R\")) source(\"/app/functions/prepShinyCellModular.R\")', \
+        '/app/.Rprofile')"
+
+RUN echo 'RENV_CONFIG_AUTOLOADER_ENABLED=FALSE' >> /usr/local/lib/R/etc/Renviron
 
 RUN chmod -R 775 /app/renv/library
