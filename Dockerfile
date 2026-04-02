@@ -26,10 +26,12 @@ RUN R -e " \
     renv::install('arrow', \
         library='/app/renv/library', \
         repos='https://packagemanager.posit.co/cran/latest'); \
-    renv::restore( \
-        library='/app/renv/library', \
-        exclude='arrow', \
-        prompt=FALSE \
+    withr::with_libpaths('/app/renv/library', action='replace', \
+        renv::restore( \
+            library='/app/renv/library', \
+            exclude='arrow', \
+            prompt=FALSE \
+        ) \
     )" 2>&1 | tee /renv_restore.log
 
 # write Renviron and .Rprofile
