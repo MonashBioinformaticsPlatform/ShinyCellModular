@@ -13,5 +13,11 @@ WORKDIR /app
 ARG REPO_URL
 RUN git clone ${REPO_URL} .
 
-RUN R -e "install.packages('arrow', repos='https://packagemanager.posit.co/cran/latest')"
-RUN R -e "renv::restore(exclude='arrow')"
+ENV RENV_PATHS_LIBRARY=/app/renv/library
+
+RUN R -e "install.packages('renv', repos='https://cloud.r-project.org')"
+RUN R -e "renv::install('arrow', repos='https://packagemanager.posit.co/cran/latest')"
+RUN R -e "renv::restore(exclude='arrow')" 2>&1 | tee /renv_restore.log && cat /renv_restore.log
+
+RUN chmod -R 775 /app/renv/library
+
