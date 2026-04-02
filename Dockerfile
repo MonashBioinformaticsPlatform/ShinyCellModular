@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mamba config append channels conda-forge && \
-    mamba config append channels bioconda && \
+RUN conda config append channels conda-forge && \
+    conda config append channels bioconda && \
     mamba install -y \
     r-arrow r-data.table r-dplyr r-dt bioconductor-edger \
     r-ggdendro r-ggforce r-ggplot2 r-ggrepel r-gridextra \
