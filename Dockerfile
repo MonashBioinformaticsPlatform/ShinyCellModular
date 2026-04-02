@@ -16,7 +16,10 @@ ARG REPO_URL
 RUN git clone ${REPO_URL} .
 
 # install renv and arrow to system library first
-RUN R -e "install.packages( \
+RUN R -e "install.packages(c('withr'), \
+    repos='https://packagemanager.posit.co/cran/latest', \
+    lib='/usr/local/lib/R/site-library'); \
+    install.packages( \
     'https://cran.r-project.org/src/contrib/Archive/renv/renv_1.1.4.tar.gz', \
     repos=NULL, type='source', \
     lib='/usr/local/lib/R/site-library')"
