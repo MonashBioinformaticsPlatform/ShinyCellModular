@@ -13,4 +13,5 @@ WORKDIR /app
 ARG REPO_URL
 RUN git clone ${REPO_URL} .
 
+RUN R -e "install.packages('arrow', repos='https://packagemanager.posit.co/cran/latest')"
 RUN R -e "install.packages('renv'); renv::restore()"
