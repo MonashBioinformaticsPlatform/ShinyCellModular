@@ -1,3 +1,5 @@
+FROM condaforge/mambaforge:latest
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Australia/Melbourne
 
