@@ -34,5 +34,5 @@ ARG REPO_URL
 RUN git clone ${REPO_URL} .
 
 RUN echo 'R_PROFILE_USER=/app/.Rprofile' >> $(R RHOME)/etc/Renviron
-RUN echo 'if (file.exists("/app/functions/prepShinyCellModular.R")) source("/app/functions/prepShinyCellModular.R")' >> /app/.Rprofile
+RUN echo 'if (file.exists("/app/functions/prepShinyCellModular.R")) source("/app/functions/prepShinyCellModular.R")' > /app/.Rprofile
 RUN echo 'if (file.exists("/app/functions/useShinyCellModular.R")) source("/app/functions/useShinyCellModular.R")' >> /app/.Rprofile
