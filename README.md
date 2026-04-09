@@ -92,7 +92,8 @@ useShinyCellModular(
     app_title='Testing'
 )
 
-
+runApp('testing_data')
+# or open app.R and run
 ```
 
 
