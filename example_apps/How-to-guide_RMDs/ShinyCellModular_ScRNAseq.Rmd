@@ -1,0 +1,309 @@
+---
+title: "ShinyCellModular For scRNAseq"
+author: "Laura Perlaza-Jimenez"
+output:
+  html_document:
+    theme: flatly
+    df_print: kable
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+date: 'Compiled: `r format(Sys.Date(), "%B %d, %Y")`'
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+all_times <- list()  # store the time for each chunk
+knitr::knit_hooks$set(time_it = local({
+  now <- NULL
+  function(before, options) {
+    if (before) {
+      now <<- Sys.time()
+    } else {
+      res <- difftime(Sys.time(), now, units = "secs")
+      all_times[[options$label]] <<- res
+    }
+  }
+}))
+knitr::opts_chunk$set(
+  tidy = TRUE,
+  tidy.opts = list(width.cutoff = 95),
+  message = FALSE,
+  warning = FALSE,
+  time_it = TRUE,
+  echo=TRUE
+)
+```
+
+
+
+```{css, echo=FALSE}
+/* ---- reset & base — Monash primary palette -------------------------------- */
+/* blue #006DAE, black #000000, dark grey #3c3c3c,
+   grey #505050, light grey #F6F6F6                                            */
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: #F6F6F6;
+  color: #000000;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ---- top nav bar — Monash blue ------------------------------------------- */
+.monash-nav {
+  background: #006DAE;
+  padding: 0 1.5rem;
+  display: flex; align-items: center; gap: 12px;
+  height: 52px;
+  margin-bottom: 0;
+}
+.monash-nav-wordmark {
+  font-size: 15px; font-weight: 700; color: #fff;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.monash-nav-divider { width: 1px; height: 22px; background: rgba(255,255,255,0.35); }
+.monash-nav-sub { font-size: 12px; color: rgba(255,255,255,0.85); letter-spacing: 0.03em; }
+
+/* ---- main content area ---------------------------------------------------- */
+.main-container { max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+/* ---- page title ----------------------------------------------------------- */
+h1.title {
+  font-size: 24px; font-weight: 700; color: #000000;
+  border-bottom: 3px solid #006DAE;
+  padding-bottom: 6px; margin-bottom: 4px;
+}
+.author, .date { font-size: 13px; color: #505050; margin: 0; }
+
+/* ---- section headings ----------------------------------------------------- */
+h2 {
+  font-size: 16px; font-weight: 700; color: #000000;
+  border-left: 4px solid #006DAE;
+  padding-left: 10px; margin-top: 2.2rem; margin-bottom: 0.8rem;
+}
+h3 {
+  font-size: 14px; font-weight: 700; color: #3c3c3c;
+  margin-top: 1.4rem; margin-bottom: 0.4rem;
+}
+
+/* ---- TOC ------------------------------------------------------------------ */
+#TOC {
+  background: #fff !important;
+  border: 1px solid #e0e0e0 !important;
+  border-top: 3px solid #006DAE !important;
+  border-radius: 0 0 4px 4px !important;
+  padding: 1rem 1.2rem !important;
+  font-size: 13px !important;
+}
+#TOC ul { padding-left: 1rem !important; }
+#TOC a { color: #505050 !important; text-decoration: none !important; }
+#TOC a:hover { color: #006DAE !important; }
+#TOC .active > a { color: #006DAE !important; font-weight: 600 !important; }
+
+/* ---- flatly overrides — reclaim body and heading colours ----------------- */
+body { background: #F6F6F6 !important; color: #000000 !important; }
+h1, h2, h3, h4 { color: inherit; }
+.navbar, .navbar-default { background-color: #006DAE !important;
+                            border-color: #006DAE !important; }
+
+/* ---- prose links ---------------------------------------------------------- */
+a { color: #006DAE; }
+a:hover { color: #005a8e; }
+
+/* ---- tables --------------------------------------------------------------- */
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; margin: 1rem 0;
+}
+thead tr { background: #006DAE; color: #fff; }
+thead th { padding: 8px 12px; text-align: left; font-weight: 600; }
+tbody tr:nth-child(even) { background: #f0f6fb; }
+tbody td { padding: 7px 12px; border-bottom: 1px solid #e0e0e0; color: #3c3c3c; }
+
+/* ---- code blocks ---------------------------------------------------------- */
+pre {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #3c3c3c;
+  border-radius: 0 4px 4px 0;
+  padding: 1rem 1.2rem;
+  font-size: 12.5px;
+  overflow-x: auto;
+}
+code {
+  font-size: 12.5px;
+  color: #3c3c3c;
+}
+/* inline code */
+p code, li code {
+  background: #F6F6F6;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #006DAE;
+}
+
+/* ---- horizontal rule ------------------------------------------------------ */
+hr { border: none; border-top: 1px solid #e0e0e0; margin: 2rem 0; }
+
+/* ---- info/step boxes — reuse stat-box concept from landing page ----------- */
+.step-box {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-top: 3px solid #006DAE;
+  border-radius: 0 0 4px 4px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+```
+
+
+## The dataset
+
+The dataset used in this example app is a modified version derived from this study ([see here](https://pubmed.ncbi.nlm.nih.gov/29227470/)). It has been adapted to introduce additional complexity for instructional purposes. Please refrain from drawing any biological conclusions from this data as it **does NOT represent real experimental results**.
+
+This dataset represents human peripheral blood mononuclear cells (PBMCs), pooled from eight individual donors. Genetic differences among donors enable the identification of some cell doublets, enhancing data complexity. It includes two single-cell sequencing batches, one of which was stimulated with IFN-beta. Additionally, mitochondrial expression levels have been introduced to demonstrate how to interpret and apply mitochondrial thresholds for filtering purposes.
+
+---
+
+## Overview
+
+**ShinyCellModular** is a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). It supports large scRNAseq datasets with fast on-demand HDF5 access, extended visualisations, and publication-ready plots. Its modular structure means each visualisation tab is self-contained and independently configurable.
+
+Launching a ShinyCellModular app requires two steps:
+
+1. **`prepShinyCellModular()`** — processes your Seurat object and writes all data files the app needs to disk
+2. **`useShinyCellModular()`** — assembles the Shiny app by wiring the prepared data to the selected visualisation tabs
+
+---
+
+## Step 1 — Prepare the data with `prepShinyCellModular()`
+
+`prepShinyCellModular()` reads your Seurat object, runs optional analyses (3D UMAP, marker genes), and writes all required output files to `out_dir`. This only needs to be run once per dataset, or whenever the underlying Seurat object changes.
+
+**Key output files written to `out_dir`:**
+
+| File | Used by |
+|---|---|
+| `sc1conf.rds`, `sc1def.rds`, `sc1gene.rds`, `sc1meta.rds` | All visualisation tabs |
+| `sc1counts.h5` | `pseudobulk` tab (raw counts, on-demand access) |
+| `markergenes_lists.parquet` | `bubble_heatmap` and related tabs |
+
+```{r}
+# path to the prepared Seurat object (.rds)
+seurat_object_rds <- "../data/scRNAseq_data.rds"
+
+# load the preparation function
+source("~/data/ShinyCellModular/functions/prepShinyCellModular.R")
+
+prepShinyCellModular(
+  # path to the Seurat .rds file to process
+  seurat_rds = seurat_object_rds,
+
+  # output directory where all app data files will be written
+  # this directory will be created if it does not exist
+  out_dir = "../app_scRNAseq",
+
+  # which assay to process — use "RNA" for standard scRNAseq
+  # for multimodal datasets use c("RNA", "ATAC")
+  assays_selected = "RNA",
+
+  # compute a 3D UMAP embedding (required for the cellinfo3D tabs)
+  # this runs RunUMAP() with n.components = 3 from PCA and stores it
+  # as a new reduction in the object before ShinyCell export
+  do_umap3d = TRUE,
+
+  
+  # remember to add any additional reduction you want to plot in 3D. 
+  # include reductions such harmony or any integration
+  umap3d_reductions = c("pca","harmony"),
+
+  # compute marker genes per cluster across all resolution columns
+  # matching the default pattern "res\." in the metadata
+  # results are written to markergenes_lists.parquet in out_dir
+  # requires the presto package
+  do_markers = TRUE,
+
+  # automatically install any missing required packages
+  # set to FALSE if you prefer to manage dependencies manually
+  install_missing = TRUE
+)
+```
+
+---
+
+## Step 2 — Assemble the app with `useShinyCellModular()`
+
+`useShinyCellModular()` does not reprocess any data. It takes the files written by `prepShinyCellModular()` and generates a ready-to-run `app.R` in `shiny.dir`. Module files for each selected tab are copied from the ShinyCellModular source directory.
+
+**What gets generated in `shiny.dir`:**
+
+- `app.R` — the main Shiny application file with all tab wiring
+- `modules/` — copies of the selected module files (one per tab)
+
+```{r}
+# load the app assembly function
+source("~/data/ShinyCellModular/functions/useShinyCellModular.R")
+
+useShinyCellModular(
+  # directory containing the prepared data files from prepShinyCellModular()
+  # this is where app.R and the modules/ folder will be written
+  shiny.dir = "../app_scRNAseq",
+
+  # path to the local ShinyCellModular repository
+  # useShinyCellModular() copies module files from here into shiny.dir
+  shinycellmodular.dir.src = "~/data/ShinyCellModular/",
+
+  # set to TRUE to write an rsconnect manifest for server deployment
+  # does not deploy automatically — the manifest is written for manual use
+  rsconnect.deploy = FALSE,
+
+  # data type determines which module catalogue to use
+  # use "" or "RNA" for standard scRNAseq
+  # use "RNA_ATAC" for multimodal datasets
+  data_type = "",
+
+  # tabs to include in the app — each entry is a tab id corresponding to
+  # a module file in modules/RNA/ of the ShinyCellModular source directory
+  # remove any tab id from this list to exclude that tab from the app
+  #
+  # cellinfo_cellinfo      : 2D embedding coloured by metadata
+  # cellinfo_geneexpr      : 2D embedding with gene expression overlay
+  # cellinfo3D_cellinfo3D  : interactive 3D embedding coloured by metadata (requires do_umap3d = TRUE)
+  # cellinfo3D_geneexpr3D  : interactive 3D embedding with gene expression overlay (requires do_umap3d = TRUE)
+  # genecoex               : coexpression visualisation for selected gene pairs
+  # violin_boxplot         : violin and boxplots for gene expression or metadata across groups
+  # proportions            : cell type / cluster composition summaries per group
+  # bubble_heatmap         : bubble plot and heatmap for gene sets across groups
+  # pseudobulk             : pseudobulk aggregation and differential expression (requires sc1counts.h5)
+  enabled_tabs = c("cellinfo_cellinfo",
+                   "cellinfo_geneexpr",
+                   "cellinfo3D_cellinfo3D",
+                   "cellinfo3D_geneexpr3D",
+                   "genecoex",
+                   "violin_boxplot",
+                   "proportions",
+                   "bubble_heatmap",
+                   "pseudobulk"),
+
+  # overwrite the modules/ folder in shiny.dir if it already exists
+  # set to TRUE to pick up updates from the ShinyCellModular source
+  # any local edits to module files inside shiny.dir will be lost
+  overwrite_modules = TRUE,
+
+  # title displayed in the app navigation bar
+  app_title = 'Example ShinyCellModular - Single Cell RNAseq'
+)
+```
+
+---
+
+## Step 3 — Launch the app
+
+Once both steps have completed, open `app.R` inside `shiny.dir` and click **Run App**, or run:
+
+```{r eval=FALSE}
+shiny::runApp("../app_scRNAseq")
+```

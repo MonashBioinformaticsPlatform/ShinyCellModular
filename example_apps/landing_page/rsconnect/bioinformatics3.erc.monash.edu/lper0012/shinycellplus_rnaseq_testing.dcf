@@ -1,0 +1,12 @@
+name: shinycellplus_rnaseq_testing
+title: ShinyCellPlus_RNAseq_Testing
+username: lper0012
+account: lper0012
+server: bioinformatics3.erc.monash.edu
+hostUrl: https://bioinformatics3.erc.monash.edu/rsconnect/__api__
+appId: 543
+bundleId: 2138
+url: https://bioinformatics3.erc.monash.edu:443/rsconnect/content/543/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

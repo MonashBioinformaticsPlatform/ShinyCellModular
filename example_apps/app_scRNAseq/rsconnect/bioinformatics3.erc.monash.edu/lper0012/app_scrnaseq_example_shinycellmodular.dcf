@@ -1,0 +1,13 @@
+name: app_scrnaseq_example_shinycellmodular
+title: app_scRNAseq_Example_ShinyCellModular
+username: lper0012
+account: lper0012
+server: bioinformatics3.erc.monash.edu
+hostUrl: https://bioinformatics3.erc.monash.edu/rsconnect/__api__
+appId: 547
+bundleId: 2118
+url: https://bioinformatics3.erc.monash.edu:443/rsconnect/content/547/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: markergenes_lists.parquet|sc1conf.rds|sc1counts.h5|sc1def.rds|sc1gene.rds|sc1gexpr.h5|sc1meta.rds|server.R.bak|ui.R.bak
