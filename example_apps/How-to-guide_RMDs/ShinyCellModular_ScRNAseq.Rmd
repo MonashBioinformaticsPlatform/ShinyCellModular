@@ -192,6 +192,7 @@ Launching a ShinyCellModular app requires two steps:
 | `markergenes_lists.parquet` | `bubble_heatmap` and related tabs |
 
 ```{r}
+
 # path to the prepared Seurat object (.rds)
 seurat_object_rds <- "../data/scRNAseq_data.rds"
 
