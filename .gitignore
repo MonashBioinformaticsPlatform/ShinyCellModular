@@ -3,5 +3,5 @@
 .RData
 .Ruserdata
 RProjShinyCellPlus
-testing_data
-example_apps
+testing_data/*
+example_apps/*
