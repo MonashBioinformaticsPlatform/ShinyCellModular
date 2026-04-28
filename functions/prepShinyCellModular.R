@@ -30,12 +30,49 @@ prepShinyCellModular <- function(
     fragments_paths = NULL,     # optional named list by index to override fragment file paths
     # e.g. list("1" = "/path/to/sample1.tsv.gz", "2" = "/path/to/sample2.tsv.gz")
     # if NULL, prepShinyCellModular will try to copy from the original paths in the object
-    fragments_sample_col = NULL # deprecated — no longer used, kept for compatibility
+    custom_colors = NULL, # add here custom colors
+    help = FALSE
 ) {
   
   ###########################################################################
   # Helper Functions
   ###########################################################################
+  helpMessage <- paste0(
+    "prepShinyCellModular() — Prepare a Seurat object for ShinyCellModular\n",
+    "\n",
+    "ARGUMENTS\n",
+    "  seurat_obj            Seurat object (alternative to seurat_rds)\n",
+    "  seurat_rds            Path to .rds Seurat object (alternative to seurat_obj)\n",
+    "  out_dir               Output directory. Default: 'Files_ShinyCell'\n",
+    "  shiny_title           Title for the Shiny app\n",
+    "  assays_selected       Assay(s) to process. e.g. c('RNA','ATAC')\n",
+    "  ident_col             Column to set as Idents. Default: NULL (uses existing)\n",
+    "  do_variable_features  Run FindVariableFeatures before createConfig. Default: TRUE\n",
+    "  do_markers            Compute marker genes with presto. Default: FALSE\n",
+    "  markers_file          Path for output markers parquet. Default: auto\n",
+    "  markers_overwrite     Overwrite existing markers file. Default: FALSE\n",
+    "  markers_res_pattern   Regex pattern to find resolution columns. Default: 'res\\\\.'\n",
+    "  do_umap3d             Run 3D UMAP. Default: FALSE\n",
+    "  umap3d_reductions     Reductions to use as input for 3D UMAP. Default: c('pca')\n",
+    "  umap3d_dims           Dims to use (auto-capped to available). Default: 1:30\n",
+    "  umap3d_name_suffix    Suffix for 3D UMAP reduction name. Default: '_umap3d'\n",
+    "  do_counts_h5          Write raw counts to HDF5. Default: TRUE\n",
+    "  counts_h5_file        Path for output H5 file. Default: auto\n",
+    "  counts_overwrite      Overwrite existing H5 file. Default: TRUE\n",
+    "  counts_layer          Seurat layer to use for counts. Default: 'counts'\n",
+    "  do_make_app           Run makeShinyApp. Default: TRUE\n",
+    "  gene_mapping          Map gene names in ShinyCell. Default: TRUE\n",
+    "  custom_colors         Named character vector of label -> hex color to override\n",
+    "                        ShinyCell default colors. Extra names not in data are ignored\n",
+    "  install_missing       Auto-install missing packages. Default: FALSE\n",
+    "  verbose               Print progress messages. Default: TRUE\n",
+    "  do_motifs             Extract motifs from ATAC assay. Default: 'auto'\n",
+    "  motifs_findmotifs     Output of FindMotifs() to add enrichment scores. Default: NULL\n",
+    "  motifs_overwrite      Overwrite existing motif files. Default: TRUE\n",
+    "  fragments_paths       Named list of fragment file path overrides by index.\n",
+    "                        e.g. list('1' = '/path/to/sample1.tsv.gz'). Default: NULL\n",
+    "  help                  Print this help message. Default: FALSE\n"
+  )
   
   .msg <- function(...) if (isTRUE(verbose)) message(...)
   .need_pkg <- function(pkg) {
@@ -81,6 +118,7 @@ prepShinyCellModular <- function(
     }
     .msg("Creating ShinyCell config")
     scConf <- ShinyCell::createConfig(seurat_obj)
+    
     if (active_assay == "RNA") {
       out_dir_path <- out_dir
     } else {
@@ -90,11 +128,43 @@ prepShinyCellModular <- function(
     ShinyCell::makeShinyApp(
       seurat_obj,
       scConf,
-      gex.assay   = active_assay,
+      gex.assay    = active_assay,
       gene.mapping = gene_mapping,
       shiny.title  = shiny_title,
       shiny.dir    = out_dir_path
     )
+    
+    # Patch custom_colors into sc1conf.rds after makeShinyApp writes it,
+    # as makeShinyApp overwrites the file ignoring any pre-patched scConf
+    if (!is.null(custom_colors) && length(custom_colors) > 0) {
+      # custom_colors must be a named character vector; source() output is a list with $value
+      if (is.list(custom_colors)) {
+        warning("custom_colors is a list — did you use source()? Extracting $value automatically. Use custom_colors = source('colors.R')$value to avoid this warning.", call. = FALSE)
+        custom_colors <- custom_colors$value
+      }
+      if (!is.character(custom_colors) || is.null(names(custom_colors))) {
+        warning("custom_colors is not a named character vector — skipping color patch.", call. = FALSE)
+      } else {
+        conf_path <- file.path(out_dir_path, "sc1conf.rds")
+        .msg("Patching custom_colors into: ", conf_path)
+        scConf <- readRDS(conf_path)
+        for (i in seq_len(nrow(scConf))) {
+          if (is.na(scConf$fCL[i])) next
+          lvls        <- strsplit(scConf$fID[i], "\\|")[[1]]
+          cols        <- strsplit(scConf$fCL[i], "\\|")[[1]]
+          if (length(lvls) != length(cols)) next
+          names(cols) <- lvls
+          matched     <- intersect(lvls, names(custom_colors))
+          if (!length(matched)) next
+          cols[matched]  <- custom_colors[matched]
+          scConf$fCL[i]  <- paste(unname(cols), collapse = "|")
+          .msg("  Patched colors for column: ", scConf$UI[i],
+               " (", length(matched), "/", length(lvls), " levels matched)")
+        }
+        saveRDS(scConf, conf_path)
+        .msg("Patched sc1conf.rds saved to: ", conf_path)
+      }
+    }
   }
   
   .extract_motifs <- function(seurat_obj, active_assay, atac_out_dir,
@@ -319,11 +389,19 @@ fragments_paths = list(
   # Load Seurat Object
   ###########################################################################
   
+  if (is.null(seurat_obj) && is.null(seurat_rds) && !isTRUE(help)) {
+    help <- TRUE
+  }
+  if (isTRUE(help)) {
+    message(helpMessage)
+    return(invisible(NULL))
+  }
+  
   if (!is.null(seurat_rds)) {
     .msg("Loading Seurat object from: ", seurat_rds)
     seurat_obj <- readRDS(seurat_rds)
   }
-  if (is.null(seurat_obj)) stop("Provide seurat_obj or seurat_rds.", call. = FALSE)
+  if (is.null(seurat_obj)) stop("Provide seurat_obj or seurat_rds. To get more information about the function prep", call. = FALSE)
   
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   
@@ -404,16 +482,23 @@ fragments_paths = list(
           Seurat::DefaultAssay(seurat_obj) <- active_assay
           expr <- Seurat::GetAssayData(seurat_obj, layer = "data")
           markers_list <- NULL
-          for (res in resolutions) {
-            .msg("  Markers for: ", res)
-            clusters <- seurat_obj@meta.data[[res]]
-            mk       <- presto::wilcoxauc(expr, clusters)
-            mk       <- as.data.frame(mk)
-            mk$annotation <- res
-            markers_list <- if (is.null(markers_list)) mk else rbind(markers_list, mk)
-          }
+          
+            for (res in resolutions) {
+              clusters <- seurat_obj@meta.data[[res]]
+              if (length(unique(clusters)) < 2) {
+                .msg("  Skipping markers for: ", res, " (fewer than 2 unique groups)")
+                next
+              }
+              .msg("  Markers for: ", res)
+              clusters <- seurat_obj@meta.data[[res]]
+              mk       <- presto::wilcoxauc(expr, clusters)
+              mk       <- as.data.frame(mk)
+              mk$annotation <- res
+              markers_list <- if (is.null(markers_list)) mk else rbind(markers_list, mk)
+            }
           .msg("Writing markers to: ", markers_file)
           arrow::write_parquet(markers_list, markers_file)
+         
         }
       } else {
         .msg("Markers optional is OFF, skipping marker generation")
@@ -460,6 +545,8 @@ fragments_paths = list(
     
     if (isTRUE(do_make_app)) {
       createSCfiles(seurat_obj, active_assay, out_dir)
+      cat("DEBUG: custom_colors at call time is", if(is.null(custom_colors)) "NULL" else paste(length(custom_colors), "entries"), "\n")  # debug
+      
     } else {
       .msg("makeShinyApp optional is OFF, skipping app generation")
     }
@@ -487,4 +574,13 @@ fragments_paths = list(
     markers_file   = if (isTRUE(do_markers)) markers_file else NULL,
     counts_h5_file = if (isTRUE(do_counts_h5)) counts_h5_file else NULL
   ))
+
+  #######################################################################
+  #
+  # to print help and details on the function:
+  #            prepShinyCellModular(help=TRUE) 
+  #
+  ########################################################################
+
+  
 }

@@ -515,7 +515,7 @@ if (isTRUE(rsconnect.deploy)) {
   writeLines(toJSON(m, pretty = TRUE, auto_unbox = TRUE), manifest_path)
   
   cat("Updated keys:\n")
-  cat(paste0("  ", targets, " -> ", paste0(dir_prefix, targets)), sep = "\n")
+  cat(paste0("  ", targets, " -> ", file.path(dir_prefix, targets)), sep = "\n")
   cat("\n")
   
 }
