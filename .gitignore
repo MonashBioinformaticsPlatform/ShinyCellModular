@@ -4,4 +4,5 @@
 .Ruserdata
 RProjShinyCellPlus
 testing_data/*
-example_apps/app_scRNAseq/
+example_apps/app_scRNAseq/*
+example_apps/app_scRNAseq/markergenes_lists.parquet
