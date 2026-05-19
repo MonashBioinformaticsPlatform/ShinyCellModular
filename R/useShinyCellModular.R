@@ -2,7 +2,6 @@
 #' @importFrom stats na.omit
 #' @importFrom utils install.packages
 NULL
-
 # packages used inside generated app.R template — referenced here to satisfy R CMD check
 if (FALSE) {
   jsonlite::toJSON
@@ -11,9 +10,10 @@ if (FALSE) {
   library(rsconnect)
 }
 
+#' @export
 useShinyCellModular <- function(
     shiny.dir, # files from shinycell are
-    shinycellmodular.dir.src, # modules where shinycellmodular 
+    shinycellmodular.dir.src = system.file("", package = "ShinyCellModular"), # modules where shinycellmodular 
     rsconnect.deploy = FALSE, # do you want to publish in rsconnect
     data_type = c("RNA", "RNA_ATAC", "SPATIAL"), # what predetermine tabs you want
     enabled_tabs = NULL, # what tabs you want
@@ -21,6 +21,48 @@ useShinyCellModular <- function(
     disable_ui_server = TRUE, # this disables the existing ui.R and server.r
     app_title=NULL
 ) {
+  
+  ###########################################################################
+  # Help
+  ###########################################################################
+  
+  helpMessage <- paste0(
+    "useShinyCellModular()  -  Generate a modular ShinyCellModular Shiny app\n",
+    "\n",
+    "ARGUMENTS\n",
+    "  shiny.dir                  Directory containing prepared ShinyCell output files (sc1conf.rds etc.)\n",
+    "  shinycellmodular.dir.src   Path to ShinyCellModular source containing modules/. Default: system.file('modules', package='ShinyCellModular')\n",
+    "  rsconnect.deploy           Write rsconnect manifest for deployment. Default: FALSE\n",
+    "  data_type                  Type of data: 'RNA', 'RNA_ATAC', or 'SPATIAL'. Default: 'RNA'\n",
+    "  enabled_tabs               Character vector of tab IDs to include. Default: NULL (all tabs for data_type)\n",
+    "  overwrite_modules          Remove and replace existing modules/ folder. Default: FALSE\n",
+    "  disable_ui_server          Rename legacy ui.R and server.R to .bak. Default: TRUE\n",
+    "  app_title                  Title shown in the app navbar. Required.\n",
+    "  help                       Print this help message. Default: FALSE\n",
+    "\n",
+    "OUTPUTS\n",
+    "  app.R written to shiny.dir\n",
+    "  modules/ folder copied into shiny.dir\n",
+    "  manifest.json written if rsconnect.deploy = TRUE\n",
+    "\n",
+    "USAGE\n",
+    "  useShinyCellModular(\n",
+    "    shiny.dir        = 'path/to/app/',\n",
+    "    data_type        = 'RNA',\n",
+    "    app_title        = 'My App'\n",
+    "  )\n",
+    "\n",
+    "  # To get more information about the function:\n",
+    "  #   useShinyCellModular(help = TRUE)\n"
+  )
+  
+  if (missing(shiny.dir) && !isTRUE(help)) {
+    help <- TRUE
+  }
+  if (isTRUE(help)) {
+    message(helpMessage)
+    return(invisible(NULL))
+  }
   
   shiny.dir <- normalizePath(shiny.dir, mustWork = TRUE)
   shinycellmodular.dir.src <- normalizePath(shinycellmodular.dir.src, mustWork = TRUE)
@@ -122,15 +164,12 @@ if (data_type_provided && tabs_provided) {
     server_r <- file.path(shiny.dir, "server.R")
     
     if (file.exists(ui_r) || file.exists(server_r)) {
-      warning(
-        paste(
-          "ui.R and or server.R detected in the app directory.",
-          "Shiny will prioritise these files over app.R.",
-          "To ensure the modular ShinyCellModular app is used,",
-          "ui.R and server.R will be disabled by renaming them.",
-          "Backup files with extension .bak will be created."
-        ),
-        call. = FALSE
+      message(
+        "ui.R and or server.R detected in the app directory. ",
+        "Shiny will prioritise these files over app.R. ",
+        "To ensure the modular ShinyCellModular app is used, ",
+        "ui.R and server.R will be disabled by renaming them. ",
+        "Backup files with extension .bak will be created."
       )
     }
     

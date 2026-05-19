@@ -1,6 +1,7 @@
 #' @importFrom stats na.omit
 #' @importFrom utils install.packages
 NULL
+#' @export
 prepShinyCellModular <- function(
     seurat_obj = NULL,
     seurat_rds = NULL,
@@ -461,13 +462,16 @@ fragments_paths = list(
           }
           red_name <- paste0(red, umap3d_name_suffix)
           .msg("  RunUMAP reduction=", red, " into ", red_name)
+          suppressWarnings(
           seurat_obj <- Seurat::RunUMAP(
             seurat_obj,
             reduction      = red,
             dims           = umap3d_dims,
             n.components   = 3,
-            reduction.name = red_name
-          )
+            reduction.name = red_name,
+            umap.method    = "uwot",
+            verbose        = FALSE
+          ))
         }
       }
       
