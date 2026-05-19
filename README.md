@@ -75,3 +75,15 @@ useShinyCellModular(
 runApp("testing_data")
 # or open app.R and run
 ```
+
+***
+## Legacy version
+
+The pre-package version of ShinyCellModular is preserved in the [`legacy` branch](https://github.com/MonashBioinformaticsPlatform/ShinyCellModular/tree/legacy) for users who are already working with that code. New development happens on `main`.
+
+***
+## Acknowledgement
+
+We would love to know if ShinyCellModular is useful to you and your team. If you use it in your work or build new modules on top of it, please let us know and acknowledge it in your publications — this helps us track its impact and justify continued development.
+
+
