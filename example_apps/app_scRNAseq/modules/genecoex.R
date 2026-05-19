@@ -386,11 +386,15 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "genecoex",
-  title  = "Gene Coexpression",
-  ui     = scDRcoex_ui,
-  server = scDRcoex_server
+  id          = "genecoex",
+  title       = "Gene Coexpression",
+  ui          = scDRcoex_ui,
+  server      = scDRcoex_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Gene coexpression visualisation on reduced dimensions, adapted from original ShinyCell package",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "Original ShinyCell, MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )
-
-
   
