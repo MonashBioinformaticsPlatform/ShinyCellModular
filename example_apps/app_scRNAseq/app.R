@@ -121,8 +121,9 @@ assays_vec <- unique(sc1conf$assay)
 
 tab_registry <- list()
 
-register_tab <- function(id, title, ui, server) {
-
+register_tab <- function(id, title, ui, server,
+                         author = NULL, description = NULL, version = NULL,
+                         date = NULL, source = NULL, contact = NULL) {
   fn_args <- names(formals(server))
   if (is.null(fn_args)) fn_args <- character()
 
@@ -146,13 +147,22 @@ register_tab <- function(id, title, ui, server) {
     )
   }
 
-  tab_registry[[id]] <<- list(
-    title  = title,
-    ui     = ui,
-    server = server
+                         
+ tab_registry[[id]] <<- list(
+    title       = title,
+    ui          = ui,
+    server      = server,
+    # --- tab metadata (shown in per-tab footer) ---
+    author      = author,
+    description = description,
+    version     = version,
+    date        = date,
+    source      = source,
+    contact     = contact
   )
 }
-
+                         
+                         
 get_tab_ids <- function(enabled_tabs = NULL) {
   all_ids <- names(tab_registry)
   if (is.null(enabled_tabs) || length(enabled_tabs) == 0) all_ids else intersect(enabled_tabs, all_ids)
@@ -226,9 +236,31 @@ if (length(missing_tabs) > 0) {
 tab_ids <- get_tab_ids(enabled_tabs)
 
 tab_panels <- lapply(tab_ids, function(k) {
+
+  meta <- tab_registry[[k]]
+
+  # build per-tab footer from registry metadata — always shown, fields omitted if NULL
+  .fmt_field <- function(label, val) {
+    if (!is.null(val) && nzchar(val)) tags$span(style = "margin-right: 18px;", tags$b(paste0(label, ": ")), val)
+  }
+  tab_footer <- tags$div(
+    style = paste(
+      "margin-top: 32px; padding: 8px 14px; border-top: 1px solid #ddd;",
+      "background: #f8f8f8; font-size: 82%; color: #888; line-height: 1.8;"
+    ),
+    tags$b("Tab info:"), tags$br(),
+    .fmt_field("Author",      meta$author),
+    .fmt_field("Description", meta$description),
+    .fmt_field("Version",     meta$version),
+    .fmt_field("Date",        meta$date),
+    .fmt_field("Source",      meta$source),
+    .fmt_field("Contact",     meta$contact)
+  )
+
   tabPanel(
-    tab_registry[[k]]$title,
-    tab_registry[[k]]$ui(id = k, sc1conf = sc1conf, sc1def = sc1def)
+    meta$title,
+    meta$ui(id = k, sc1conf = sc1conf, sc1def = sc1def),
+    tab_footer
   )
 })
 

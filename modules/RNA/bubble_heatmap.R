@@ -696,10 +696,15 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 }
 
 ############################################### Registration #################################################
-
 register_tab(
-  id     = "bubble_heatmap",
-  title  = "Bubble Plot / Heatmap ",
-  ui     = scBubbHeat_ui,
-  server = scBubbHeat_server
+  id          = "bubble_heatmap",
+  title       = "Bubble Plot / Heatmap",
+  ui          = scBubbHeat_ui,
+  server      = scBubbHeat_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Bubble plot and heatmap visualisation, adapted from original ShinyCell package. Allows ordering and Flexplots",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "Original ShinyCell, MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )

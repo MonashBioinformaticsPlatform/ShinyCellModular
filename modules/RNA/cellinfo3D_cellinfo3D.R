@@ -472,8 +472,14 @@ scDRcell3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "cellinfo3D_cellinfo3D",
-  title  = "CellInfo3D vs CellInfo3D",
-  ui     = scDRcell3D_ui,
-  server = scDRcell3D_server
+  id          = "cellinfo3D_cellinfo3D",
+  title       = "CellInfo3D vs CellInfo3D",
+  ui          = scDRcell3D_ui,
+  server      = scDRcell3D_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "3D cell metadata visualisation against cell metadata, new tab created by MGBP",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )

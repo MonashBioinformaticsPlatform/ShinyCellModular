@@ -332,11 +332,15 @@ scDRcell_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 
 
 ############################################### Registration #################################################
-
 register_tab(
-  id     = "cellinfo_cellinfo",
-  title  = "CellInfo vs CellInfo",
-  ui     = scDRcell_ui,
-  server = scDRcell_server
+  id          = "cellinfo_cellinfo",
+  title       = "CellInfo vs CellInfo",
+  ui          = scDRcell_ui,
+  server      = scDRcell_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Cell metadata visualisation against cell metadata, adapted from original ShinyCell package",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "Original ShinyCell, MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )
-

@@ -359,10 +359,15 @@ scProp_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 }
 
 ############################################### Registration #################################################
-
 register_tab(
-  id     = "proportions",
-  title  = "Cell Proportions",
-  ui     = scProp_ui,
-  server = scProp_server
+  id          = "proportions",
+  title       = "Cell Proportions",
+  ui          = scProp_ui,
+  server      = scProp_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Cell proportion visualisation, adapted from original ShinyCell package, axis order and fixed scale added",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "Original ShinyCell, MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )
