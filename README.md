@@ -33,20 +33,7 @@ devtools::install_github("MonashBioinformaticsPlatform/ShinyCellModular")
 library(ShinyCellModular)
 ```
 
-**Note:** [FlexDotPlot](https://github.com/Simon-Leonard/FlexDotPlot) is required but not on CRAN. Install it with:
-```r
-devtools::install_github("Simon-Leonard/FlexDotPlot")
-```
-
-**Note:** `limma` and `edgeR` are Bioconductor packages. Install them with:
-```r
- BiocManager::install(c("limma", "edgeR"))
-```
-
-**Note:** [ShinyCell](https://github.com/SGDDNB/ShinyCell) is required but not on CRAN. Install it with:
-```r
-devtools::install_github("SGDDNB/ShinyCell")
-```
+The fisrt time you run prepShinyCellModular add ``install_missing = TRUE``
 
 Run the 2 helper functions `prepShinyCellModular()` and `useShinyCellModular()`
 
@@ -61,6 +48,7 @@ prepShinyCellModular(seurat_rds = "seurat_object.rds", # or seurat_obj = cnts,
                      assays_selected = "RNA",
                      do_umap3d = TRUE,  
                      do_markers = TRUE
+                     #, install_missing = TRUE
                      )
 ```
 

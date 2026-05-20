@@ -13,7 +13,7 @@ if (FALSE) {
 #' @export
 useShinyCellModular <- function(
     shiny.dir, # files from shinycell are
-    shinycellmodular.dir.src = system.file("", package = "ShinyCellModular"), # modules where shinycellmodular 
+    shinycellmodular.dir.src = NULL, # modules where shinycellmodular 
     rsconnect.deploy = FALSE, # do you want to publish in rsconnect
     data_type = c("RNA", "RNA_ATAC", "SPATIAL"), # what predetermine tabs you want
     enabled_tabs = NULL, # what tabs you want
@@ -64,6 +64,22 @@ useShinyCellModular <- function(
     return(invisible(NULL))
   }
   
+  if (is.null(shinycellmodular.dir.src) || !nzchar(shinycellmodular.dir.src)) {
+    # try installed package first, then fall back to find.package() which also works for load_all()
+    pkg_dir <- tryCatch(find.package("ShinyCellModular"), error = function(e) "")
+    if (nzchar(pkg_dir) && dir.exists(file.path(pkg_dir, "modules"))) {
+      shinycellmodular.dir.src <- pkg_dir
+    } else {
+      stop(
+        "Could not auto-detect shinycellmodular.dir.src. ",
+        "Please pass it explicitly, e.g.:\n",
+        "  shinycellmodular.dir.src = system.file('', package = 'ShinyCellModular')\n",
+        "or the path to your local checkout of ShinyCellModular.",
+        call. = FALSE
+      )
+    }
+    message("Auto-detected shinycellmodular.dir.src: ", shinycellmodular.dir.src)
+  }
   shiny.dir <- normalizePath(shiny.dir, mustWork = TRUE)
   shinycellmodular.dir.src <- normalizePath(shinycellmodular.dir.src, mustWork = TRUE)
   

@@ -345,11 +345,28 @@ fragments_paths = list(
     "shiny", "shinyhelper", "shinyjs", "data.table", "Matrix", "DT",
     "magrittr", "ggplot2", "ggrepel", "hdf5r", "ggdendro", "gridExtra",
     "arrow", "rsconnect", "shinythemes", "shinydashboard", "tidyverse",
-    "sortable", "plotly", "FlexDotPlot", "RColorBrewer", "ggforce"
+    "sortable", "plotly", "RColorBrewer", "ggforce", "Seurat"
   )
+  
+  
+  # GitHub-only packages: cannot be installed via install.packages()
+  for (.gh_pkg in list(
+    list(pkg = "ShinyCell",  repo = "SGDDNB/ShinyCell"),
+    list(pkg = "ggseqlogo",  repo = "omarwagih/ggseqlogo"),
+    list(pkg = "FlexDotPlot", repo = "Simon-Leonard/FlexDotPlot")
+  )) {
+    if (!requireNamespace(.gh_pkg$pkg, quietly = TRUE)) {
+      if (!isTRUE(install_missing)) {
+        stop("Missing GitHub package: ", .gh_pkg$pkg,
+             "\nInstall with: devtools::install_github('", .gh_pkg$repo, "')", call. = FALSE)
+      }
+      if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
+      devtools::install_github(.gh_pkg$repo)
+    }
+  }
+  # Bioconductor packages
   bioc_pkgs <- c("limma", "edgeR")
-  core_cran <- c("Seurat", "ShinyCell")
-  cran_pkgs <- unique(c(cran_pkgs, core_cran))
+  
   if (isTRUE(do_markers)) cran_pkgs <- unique(c(cran_pkgs, "presto"))
   
   missing_cran <- cran_pkgs[!vapply(cran_pkgs, requireNamespace, logical(1), quietly = TRUE)]
