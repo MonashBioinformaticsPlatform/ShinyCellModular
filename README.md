@@ -43,6 +43,11 @@ devtools::install_github("Simon-Leonard/FlexDotPlot")
  BiocManager::install(c("limma", "edgeR"))
 ```
 
+**Note:** [ShinyCell](https://github.com/SGDDNB/ShinyCell) is required but not on CRAN. Install it with:
+```r
+devtools::install_github("SGDDNB/ShinyCell")
+```
+
 Run the 2 helper functions `prepShinyCellModular()` and `useShinyCellModular()`
 
 ### 2. `prepShinyCellModular()`
