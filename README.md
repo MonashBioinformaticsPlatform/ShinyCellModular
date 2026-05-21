@@ -33,7 +33,11 @@ devtools::install_github("MonashBioinformaticsPlatform/ShinyCellModular")
 library(ShinyCellModular)
 ```
 
-The fisrt time you run prepShinyCellModular add ``install_missing = TRUE``
+The first time you run prepShinyCellModular add ``install_missing = TRUE`` or run
+
+```r
+prepShinyCellModular(install_missing = TRUE)
+```
 
 Run the 2 helper functions `prepShinyCellModular()` and `useShinyCellModular()`
 
@@ -59,9 +63,8 @@ prepShinyCellModular(seurat_rds = "seurat_object.rds", # or seurat_obj = cnts,
 
 useShinyCellModular(
     shiny.dir = "testing_data/",
-    rsconnect.deploy = FALSE,
     data_type = "RNA",
-    overwrite_modules = TRUE,
+    overwrite_modules = TRUE, # be careful with this if you have done any manual changes to the modules code, it will replace the whole folder with the package modules code
     app_title = "Testing"
 )
 
