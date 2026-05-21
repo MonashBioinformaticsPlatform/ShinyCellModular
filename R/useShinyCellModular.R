@@ -239,7 +239,7 @@ if (data_type_provided && tabs_provided) {
     
     message("Copied ", sum(ok), " module(s) into: ", dst_modules)
   } else {
-    message("Using existing modules/ folder in: ", dst_modules)
+    message("You did not ask me to overwrite the modules folder. If you want me to rewrite them set  overwrite_modules = TRUE. For now using existing modules/ folder in: ", dst_modules)
   }
   
   dir_inputs <- shiny.dir
