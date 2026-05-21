@@ -92,7 +92,9 @@ useShinyCellModular <- function(
     is.null(x) || length(x) == 0 || (is.character(x) && all(trimws(x) == ""))
   }
   
-  data_type_provided <- !is_empty(data_type)
+  #data_type_provided <- !is_empty(data_type)
+  data_type_provided <- !is_empty(data_type) && length(data_type) == 1
+  
   tabs_provided <- !is_empty(enabled_tabs)
 
 
