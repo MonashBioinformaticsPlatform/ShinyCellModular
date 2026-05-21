@@ -15,7 +15,7 @@ useShinyCellModular <- function(
     shiny.dir, # files from shinycell are
     shinycellmodular.dir.src = NULL, # modules where shinycellmodular 
     rsconnect.deploy = FALSE, # do you want to publish in rsconnect
-    data_type = c("RNA", "RNA_ATAC", "SPATIAL"), # what predetermine tabs you want
+    data_type = NULL, # what predetermine tabs you want
     enabled_tabs = NULL, # what tabs you want
     overwrite_modules = FALSE, # overwrite modules
     disable_ui_server = TRUE, # this disables the existing ui.R and server.r
