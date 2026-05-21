@@ -33,7 +33,7 @@ devtools::install_github("MonashBioinformaticsPlatform/ShinyCellModular")
 library(ShinyCellModular)
 ```
 
-The first time you run prepShinyCellModular add ``install_missing = TRUE`` or run
+The first time you run `prepShinyCellModular` add `install_missing = TRUE` to auto-install any missing dependencies:
 
 ```r
 prepShinyCellModular(install_missing = TRUE)
@@ -72,6 +72,54 @@ runApp("testing_data")
 # or open app.R and run
 ```
 
+To include only specific tabs pass their IDs to `enabled_tabs`:
+
+```r
+useShinyCellModular(
+    shiny.dir    = "testing_data/",
+    data_type    = "RNA",
+    enabled_tabs = c("cellinfo_cellinfo", "violin_boxplot", "pseudobulk"),
+    app_title    = "Testing"
+)
+```
+
+***
+## Available tabs
+
+### RNA
+
+| Tab ID (`enabled_tabs`)   | Tab title              | What it shows                                         | Extra prep needed             |
+|---------------------------|------------------------|-------------------------------------------------------|-------------------------------|
+| `cellinfo_cellinfo`       | CellInfo vs CellInfo   | 2D embedding coloured by metadata                     | —                             |
+| `cellinfo_geneexpr`       | CellInfo vs GeneExpr   | 2D embedding with gene expression overlay             | —                             |
+| `cellinfo3D_cellinfo3D`   | CellInfo3D             | Interactive 3D embedding coloured by metadata         | `do_umap3d = TRUE` in prep    |
+| `cellinfo3D_geneexpr3D`   | CellInfo3D vs GeneExpr | Interactive 3D embedding with gene expression overlay | `do_umap3d = TRUE` in prep    |
+| `genecoex`                | Gene Coexpression      | Coexpression of selected genes across cells or groups | —                             |
+| `violin_boxplot`          | Violin / BoxPlot       | Violin and boxplots for gene expression or metadata   | —                             |
+| `proportions`             | Cell Proportions       | Cell composition across groups                        | —                             |
+| `bubble_heatmap`          | Bubble Plot / Heatmap  | Bubble plot and heatmap for gene sets across groups   | —                             |
+| `pseudobulk`              | Pseudobulk DE          | Pseudobulk aggregation and differential expression    | `do_counts_h5 = TRUE` in prep |
+
+### QC function
+Coming soon.
+
+### ATAC
+
+Coming soon.
+
+### RNA_ATAC
+
+Coming soon.
+
+### SPATIAL
+
+Coming soon.
+
+### CropSeq/ PerturbSeq
+
+Coming soon.
+
+
 ***
 ## Legacy version
 
@@ -81,5 +129,3 @@ The pre-package version of ShinyCellModular is preserved in the [`legacy` branch
 ## Acknowledgement
 
 We would love to know if ShinyCellModular is useful to you and your team. If you use it in your work or build new modules on top of it, please let us know and acknowledge it in your publications — this helps us track its impact and justify continued development.
-
-
