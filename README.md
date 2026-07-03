@@ -21,7 +21,7 @@ That architecture is what lets us keep customising ShinyCellModular for our own 
 <br>
 
 <a href="https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example">
-  <img src="man/figures/button.svg" width="320" height="70"/>
+  <img src="man/figures/launchapp_blue.svg" width="320" height="70"/>
 </a>
 
 <br><br>
