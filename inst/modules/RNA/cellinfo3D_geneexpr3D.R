@@ -573,7 +573,7 @@ scDRnum3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
         inp1    = input$sc1a1inp2,
         inpsub1 = input$sc1a1sub1,
         inpsub2 = input$sc1a1sub2,
-        inpH5   = file.path(dir_inputs, "sc1gexpr.h5"),
+        inpH5   = file.path(dir_inputs,"RNA","sc1gexpr.h5"),
         inpGene = sc1gene,
         inpsiz  = input$sc1a1siz,
         inpcol  = input$sc1a1col2,

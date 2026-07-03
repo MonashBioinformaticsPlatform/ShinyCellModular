@@ -323,7 +323,7 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
   output$sc1b2oup1 <- renderPlot({ 
     scDRcoex(sc1conf, sc1meta, input$sc1b2drX, input$sc1b2drY,   
              input$sc1b2inp1, input$sc1b2inp2, input$sc1b2sub1, input$sc1b2sub2, 
-             file.path(dir_inputs,"sc1gexpr.h5"), sc1gene, 
+             file.path(dir_inputs,"RNA","sc1gexpr.h5"), sc1gene, 
              input$sc1b2siz, input$sc1b2col1, input$sc1b2ord1, 
              input$sc1b2fsz, input$sc1b2asp, input$sc1b2txt) 
   }) 
@@ -337,7 +337,7 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
       file, device = "pdf", height = input$sc1b2oup1.h, width = input$sc1b2oup1.w, useDingbats = FALSE, 
       plot = scDRcoex(sc1conf, sc1meta, input$sc1b2drX, input$sc1b2drY,  
                       input$sc1b2inp1, input$sc1b2inp2, input$sc1b2sub1, input$sc1b2sub2, 
-                      file.path(dir_inputs,"sc1gexpr.h5"), sc1gene, 
+                      file.path(dir_inputs,"RNA","sc1gexpr.h5"), sc1gene, 
                       input$sc1b2siz, input$sc1b2col1, input$sc1b2ord1, 
                       input$sc1b2fsz, input$sc1b2asp, input$sc1b2txt) ) 
   }) 
@@ -348,7 +348,7 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
       file, device = "png", height = input$sc1b2oup1.h, width = input$sc1b2oup1.w, 
       plot = scDRcoex(sc1conf, sc1meta, input$sc1b2drX, input$sc1b2drY,  
                       input$sc1b2inp1, input$sc1b2inp2, input$sc1b2sub1, input$sc1b2sub2, 
-                      file.path(dir_inputs,"sc1gexpr.h5"), sc1gene, 
+                      file.path(dir_inputs,"RNA","sc1gexpr.h5"), sc1gene, 
                       input$sc1b2siz, input$sc1b2col1, input$sc1b2ord1, 
                       input$sc1b2fsz, input$sc1b2asp, input$sc1b2txt) ) 
   }) 
@@ -374,7 +374,7 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
   }) 
   output$sc1b2.dt <- renderDataTable({ 
     ggData = scDRcoexNum(sc1conf, sc1meta, input$sc1b2inp1, input$sc1b2inp2, 
-                         input$sc1b2sub1, input$sc1b2sub2, file.path(dir_inputs,"sc1gexpr.h5"), sc1gene) 
+                         input$sc1b2sub1, input$sc1b2sub2, file.path(dir_inputs,"RNA","sc1gexpr.h5"), sc1gene) 
     datatable(ggData, rownames = FALSE, extensions = "Buttons", 
               options = list(pageLength = -1, dom = "tB", buttons = c("copy", "csv", "excel"))) %>% 
       formatRound(columns = c("percent"), digits = 2) 

@@ -419,7 +419,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
       if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC")
         file.path(dir_inputs, "ATAC", "sc1gexpr.h5")
       else
-        file.path(dir_inputs, "sc1gexpr.h5")
+        file.path(dir_inputs,"RNA","sc1gexpr.h5")
     })
     cur_gene <- function() if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC") sc1gene_atac else sc1gene
     cur_conf <- function() if (!is.null(input$sc1a1assay) && input$sc1a1assay == "ATAC") sc1conf_atac else sc1conf
@@ -775,8 +775,14 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "cellinfo_geneexpr_multi",
-  title  = "CellInfo vs GeneExpr",
-  ui     = scDRnum_ui,
-  server = scDRnum_server
+  id          = "cellinfo_geneexpr_multi",
+  title       = "CellInfo vs GeneExpr Multi",
+  ui          = scDRnum_ui,
+  server      = scDRnum_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Cell metadata visualisation against gene expression, adapted from original ShinyCell package",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "Original ShinyCell, MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )

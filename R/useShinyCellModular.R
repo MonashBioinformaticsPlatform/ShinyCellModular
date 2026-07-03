@@ -10,16 +10,47 @@ if (FALSE) {
   library(rsconnect)
 }
 
+#' Generate a modular ShinyCellModular Shiny app
+#'
+#' Takes the output files from \code{\link{prepShinyCellModular}} and writes a
+#' ready-to-run \code{app.R} with the selected module tabs into \code{out_dir}.
+#'
+#' @param out_dir Directory containing prepared prepShinyCellModular output files
+#'   (\code{sc1conf.rds}, \code{sc1meta.rds}, etc.).
+#' @param shinycellmodular.dir.src Path to the ShinyCellModular source directory
+#'   containing \code{modules/}. Default: \code{system.file('', package = 'ShinyCellModular')}.
+#' @param rsconnect.deploy Write an rsconnect manifest for deployment. Default: \code{FALSE}.
+#' @param data_type Preset tab selection: \code{'RNA'}, \code{'RNA_ATAC'}, or \code{'SPATIAL'}.
+#'   Default: \code{'RNA'}.
+#' @param enabled_tabs Character vector of tab IDs to include. Overrides \code{data_type}
+#'   presets. Default: \code{NULL} (uses all tabs for \code{data_type}).
+#' @param overwrite_modules Remove and replace existing \code{modules/} folder. Default: \code{FALSE}.
+#' @param disable_ui_server Rename legacy \code{ui.R} and \code{server.R} to \code{.bak}. Default: \code{TRUE}.
+#' @param app_title Title shown in the app navbar. Required.
+#'
+#' @return Invisibly returns \code{NULL}. Writes \code{app.R} and \code{modules/} to \code{out_dir}.
+#'
+#' @examples
+#' \dontrun{
+#' useShinyCellModular(
+#'   out_dir  = "my_app_files/",
+#'   data_type  = "RNA",
+#'   app_title  = "My scRNA-seq App"
+#' )
+#' }
+#'
 #' @export
 useShinyCellModular <- function(
-    shiny.dir, # files from shinycell are
+    out_dir, # files from shinycell are
     shinycellmodular.dir.src = NULL, # modules where shinycellmodular 
     rsconnect.deploy = FALSE, # do you want to publish in rsconnect
     data_type = NULL, # what predetermine tabs you want
     enabled_tabs = NULL, # what tabs you want
     overwrite_modules = FALSE, # overwrite modules
     disable_ui_server = TRUE, # this disables the existing ui.R and server.r
-    app_title=NULL
+    app_title=NULL,
+    navbar_color = "#007BA7" # navbar background colour
+    
 ) {
   
   ###########################################################################
@@ -30,24 +61,25 @@ useShinyCellModular <- function(
     "useShinyCellModular()  -  Generate a modular ShinyCellModular Shiny app\n",
     "\n",
     "ARGUMENTS\n",
-    "  shiny.dir                  Directory containing prepared ShinyCell output files (sc1conf.rds etc.)\n",
+    "  out_dir                  Directory containing prepared ShinyCell output files (sc1conf.rds etc.)\n",
     "  shinycellmodular.dir.src   Path to ShinyCellModular source containing modules/. Default: system.file('modules', package='ShinyCellModular')\n",
     "  rsconnect.deploy           Write rsconnect manifest for deployment. Default: FALSE\n",
-    "  data_type                  Type of data: 'RNA', 'RNA_ATAC', or 'SPATIAL'. Default: 'RNA'\n",
+    "  data_type                  Type of data: 'RNA', 'ATAC', 'MULTI' or 'SPATIAL' ",
     "  enabled_tabs               Character vector of tab IDs to include. Default: NULL (all tabs for data_type)\n",
     "  overwrite_modules          Remove and replace existing modules/ folder. Default: FALSE\n",
     "  disable_ui_server          Rename legacy ui.R and server.R to .bak. Default: TRUE\n",
     "  app_title                  Title shown in the app navbar. Required.\n",
+    "  navbar_color               Customise nabar color, default is blue.\n",
     "  help                       Print this help message. Default: FALSE\n",
     "\n",
     "OUTPUTS\n",
-    "  app.R written to shiny.dir\n",
-    "  modules/ folder copied into shiny.dir\n",
+    "  app.R written to out_dir\n",
+    "  modules/ folder copied into out_dir\n",
     "  manifest.json written if rsconnect.deploy = TRUE\n",
     "\n",
     "USAGE\n",
     "  useShinyCellModular(\n",
-    "    shiny.dir        = 'path/to/app/',\n",
+    "    out_dir        = 'path/to/app/',\n",
     "    data_type        = 'RNA',\n",
     "    app_title        = 'My App'\n",
     "  )\n",
@@ -56,7 +88,7 @@ useShinyCellModular <- function(
     "  #   useShinyCellModular(help = TRUE)\n"
   )
   
-  if (missing(shiny.dir) && !isTRUE(help)) {
+  if (missing(out_dir) && !isTRUE(help)) {
     help <- TRUE
   }
   if (isTRUE(help)) {
@@ -74,47 +106,44 @@ useShinyCellModular <- function(
         "Could not auto-detect shinycellmodular.dir.src. ",
         "Please pass it explicitly, e.g.:\n",
         "  shinycellmodular.dir.src = system.file('', package = 'ShinyCellModular')\n",
-        "or the path to your local checkout of ShinyCellModular.",
+        "or the path to your local modules of ShinyCellModular.",
         call. = FALSE
       )
     }
     message("Auto-detected shinycellmodular.dir.src: ", shinycellmodular.dir.src)
   }
-  shiny.dir <- normalizePath(shiny.dir, mustWork = TRUE)
+  # missing() above does not catch out_dir = "", check separately
+  if (!nzchar(out_dir)) {
+    stop("out_dir is empty. Please provide the directory containing your prepared prepShinyCellModular files.")
+  }
+  out_dir <- normalizePath(out_dir, mustWork = TRUE)
   shinycellmodular.dir.src <- normalizePath(shinycellmodular.dir.src, mustWork = TRUE)
   
   message("ShinyCellModular app generation starting")
-  message("Target app directory: ", shiny.dir)
+  message("Target app directory: ", out_dir)
   message("Source ShinyCellModular directory: ", shinycellmodular.dir.src)
   
-  # Treat NULL, "", and character(0) as empty
+
+  
+  if (missing(app_title) || is.null(app_title)) {
+    stop("App title missing. We are not launching anonymous software today. Please provide a title using app_title='...'.")
+  }
+
+#### Handling the different data types and enable tabs 
+  
+  # treat NULL, "", and character(0) as empty
   is_empty <- function(x) {
     is.null(x) || length(x) == 0 || (is.character(x) && all(trimws(x) == ""))
   }
-  
-  #data_type_provided <- !is_empty(data_type)
-  data_type_provided <- !is_empty(data_type) && length(data_type) == 1
-  
-  tabs_provided <- !is_empty(enabled_tabs)
-
-
+  data_type_provided <- !is_empty(data_type)
+  tabs_provided      <- !is_empty(enabled_tabs)
   
   if (!data_type_provided && !tabs_provided) {
     stop("You must provide either data_type or enabled_tabs. For example data_type can be 'RNA' or RNA_ATAC or SPATIAL. What type of assay do you have?")
   }
   
-  
- if (missing(app_title) || is.null(app_title)) {
-  stop("App title missing. We are not launching anonymous software today. Please provide a title using app_title='...'.")
- }
-  
-  
-  # Tab catalogue: every   allowed_tabs tab ID per data_type 
-  # This is the single source of truth. A tab is only valid for one data_type.
-  # Passing a tab that does not belong to the chosen data_type is an error.
-  
+  # tab catalogue: every tab ID per data_type — single source of truth
   module_files <- list.files(file.path(shinycellmodular.dir.src, "modules"), recursive = TRUE)
-
   all_tabs_by_type <- lapply(
     split(module_files, dirname(module_files)),
     function(files) {
@@ -125,61 +154,49 @@ useShinyCellModular <- function(
     }
   )
   
-  default_tabs <- NULL
-  assays_vec   <- NULL
-  
   if (data_type_provided) {
-    data_type <- match.arg(data_type, choices = names(all_tabs_by_type))
-    
-    
-    ##?? I am not sure if I am using this for anything
-    assays_vec <- switch(
-      data_type,
-      RNA      = "RNA",
-      RNA_ATAC = c("RNA", "ATAC"),
-      SPATIAL  = c("Spatial", "RNA")
-    )
-    ##??
-    
-    # Default = all   allowed_tabs tabs for this data_type
-    default_tabs <- all_tabs_by_type[[data_type]]$tab_id
+    data_type <- match.arg(data_type, choices = names(all_tabs_by_type),several.ok = TRUE)
   }
   
-  if(!data_type_provided){ data_type="RNA"
-  data_type_provided <- !is_empty(data_type)
-  message("You have not provided data_type, we will assume you have Single Cell RNAseq, data_type set to RNA")
-  }
-  
-  if (!tabs_provided) {
-    enabled_tabs <- default_tabs
-  }
-  
-  
-if (data_type_provided && tabs_provided) {
-    # User supplied specific tabs AND a data_type:
-    # every requested tab must belong to the   allowed_tabs set for that data_type.
-      allowed_tabs      <- all_tabs_by_type[[data_type]]$tab_id
-      bad_tabs     <- setdiff(enabled_tabs,   allowed_tabs)
-      selected_tabs<- intersect(allowed_tabs,enabled_tabs)
-
+  if (data_type_provided && !tabs_provided) {
+    # all tabs for that data_type
+    enabled_tabs <- unique(unlist(lapply(data_type, function(dt) all_tabs_by_type[[dt]]$tab_id)))
+    
+  } else if (!data_type_provided && tabs_provided) {
+    # search all folders for requested tabs
+    found <- unlist(lapply(names(all_tabs_by_type), function(dt) {
+      intersect(enabled_tabs, all_tabs_by_type[[dt]]$tab_id)
+    }))
+    missing_tabs <- setdiff(enabled_tabs, found)
+    if (length(missing_tabs) > 0)
+      warning("The following tabs were not found in any data_type folder and will be skipped: ",
+              paste(missing_tabs, collapse = ", "), call. = FALSE)
+    enabled_tabs <- found
+    
+  } else {
+    # both provided — intersection of data_type tabs and requested tabs
+    allowed_tabs <- all_tabs_by_type[[data_type]]$tab_id
+    bad_tabs     <- setdiff(enabled_tabs, allowed_tabs)
     if (length(bad_tabs) > 0) {
       stop(
         "The following tabs are not valid for data_type = '", data_type, "':\n",
         "  ", paste(bad_tabs, collapse = ", "), "\n\n",
-        "  allowed_tabs tabs for '", data_type, "':\n",
-        "  ", paste(  allowed_tabs, collapse = ", "), "\n\n",
+        "  allowed tabs for '", data_type, "':\n",
+        "  ", paste(allowed_tabs, collapse = ", "), "\n\n",
         "To use tabs from a different data_type, change data_type accordingly.",
         call. = FALSE
       )
     }
-    enabled_tabs <-  selected_tabs 
-  } 
+    enabled_tabs <- intersect(allowed_tabs, enabled_tabs)
+  }
   
   message("Enabled tabs : ", paste(enabled_tabs, collapse = ", "))
-
+#####
+  
+  
   if (isTRUE(disable_ui_server)) {
-    ui_r <- file.path(shiny.dir, "ui.R")
-    server_r <- file.path(shiny.dir, "server.R")
+    ui_r <- file.path(out_dir, "ui.R")
+    server_r <- file.path(out_dir, "server.R")
     
     if (file.exists(ui_r) || file.exists(server_r)) {
       message(
@@ -192,23 +209,30 @@ if (data_type_provided && tabs_provided) {
     }
     
     if (file.exists(ui_r)) {
-      file.rename(ui_r, file.path(shiny.dir, "ui.R.bak"))
+      file.rename(ui_r, file.path(out_dir, "ui.R.bak"))
       message("Renamed ui.R to ui.R.bak")
     }
     
     if (file.exists(server_r)) {
-      file.rename(server_r, file.path(shiny.dir, "server.R.bak"))
+      file.rename(server_r, file.path(out_dir, "server.R.bak"))
       message("Renamed server.R to server.R.bak")
     }
   }
   
   
-  idx_tabs<-which(all_tabs_by_type[[data_type]]$tab_id %in% enabled_tabs)
+  #idx_tabs<-which(all_tabs_by_type[[data_type]]$tab_id %in% enabled_tabs)
+  
+  # build src_modules — tabs may come from multiple folders when only enabled_tabs is provided
+  src_modules <- unlist(lapply(names(all_tabs_by_type), function(dt) {
+    idx <- which(all_tabs_by_type[[dt]]$tab_id %in% enabled_tabs)
+    if (length(idx) == 0) return(character(0))
+    file.path(shinycellmodular.dir.src, "modules", dt, all_tabs_by_type[[dt]]$filename[idx])
+  }))
   
   # copy exact requested tabs only, avoid copying excessive amount of files if this app grow
-  src_modules <- file.path(shinycellmodular.dir.src, "modules/",data_type,all_tabs_by_type[[data_type]]$filename[idx_tabs])
+  #src_modules <- file.path(shinycellmodular.dir.src, "modules/",data_type,all_tabs_by_type[[data_type]]$filename[idx_tabs])
   src_modules_dir <- file.path(shinycellmodular.dir.src, "modules/")
-  dst_modules <- file.path(shiny.dir, "modules/")
+  dst_modules <- file.path(out_dir, "modules/")
   
   if (!dir.exists(src_modules_dir)) {
     stop("Could not find 'modules' folder in shinycellmodular.dir.src: ", src_modules_dir)
@@ -239,10 +263,11 @@ if (data_type_provided && tabs_provided) {
     
     message("Copied ", sum(ok), " module(s) into: ", dst_modules)
   } else {
-    message("You did not ask me to overwrite the modules folder. If you want me to rewrite them set  overwrite_modules = TRUE. For now using existing modules/ folder in: ", dst_modules)
+    message("You did not ask me to overwrite the modules folder. If you want me to rewrite them set overwrite_modules = TRUE. For now using existing modules/ folder in: ", dst_modules)
   }
   
-  dir_inputs <- shiny.dir
+  #dir_inputs <- out_dir
+  dir_inputs <- Sys.getenv("SCMODULAR_DATA_DIR", unset = out_dir)
   
   assays_str <- paste0("c(", paste(sprintf('"%s"', data_type), collapse = ", "), ")")
  # assays_str <- data_type
@@ -333,10 +358,20 @@ app_title <- "__APP_TITLE__"
 
 dir_inputs <- "__DIR_INPUTS__/"
 
-sc1conf <- readRDS(file.path(dir_inputs, "sc1conf.rds"))
-sc1def  <- readRDS(file.path(dir_inputs, "sc1def.rds"))
-sc1gene <- readRDS(file.path(dir_inputs, "sc1gene.rds"))
-sc1meta <- readRDS(file.path(dir_inputs, "sc1meta.rds"))
+if (file.exists(file.path(dir_inputs,"RNA"))) {
+        rna_dir         <- file.path(dir_inputs, "RNA")
+        sc1conf <- tryCatch({readRDS(file.path(rna_dir, "sc1conf.rds"))},error = function(e) {return(NULL)})
+        sc1def  <- tryCatch({readRDS(file.path(rna_dir, "sc1def.rds"))},error = function(e) {return(NULL)})
+        sc1gene <- tryCatch({readRDS(file.path(rna_dir, "sc1gene.rds"))},error = function(e) {return(NULL)})
+        sc1meta <- tryCatch({readRDS(file.path(rna_dir, "sc1meta.rds"))},error = function(e) {return(NULL)})
+        markers_list <- tryCatch({file.path(rna_dir, "markergenes_lists.parquet")},error = function(e) {return(NULL)})
+
+}else { sc1conf     <- NULL
+       sc1def      <- NULL
+       sc1gene     <- NULL
+       sc1meta     <- NULL
+       markers_list <- NULL
+        }
 
 # there must be a better way to do this for all alternative assays
 
@@ -350,7 +385,7 @@ if (file.exists(file.path(dir_inputs,"ATAC"))) {
   sc1annotation    <- tryCatch({readRDS(file.path(atac_dir, "sc1annotation.rds"))},error = function(e){return(NULL)})
   sc1peaks         <- tryCatch({readRDS(file.path(atac_dir, "sc1peaks.rds"))},error = function(e){return(NULL)})
   sc1links         <- tryCatch({readRDS(file.path(atac_dir, "sc1links.rds"))},error = function(e) {return(NULL)})
-} else { sc1conf_atac     <- NULL
+}else { sc1conf_atac     <- NULL
           sc1def_atac      <- NULL
           sc1gene_atac     <- NULL
           sc1meta_atac     <- NULL
@@ -360,11 +395,6 @@ if (file.exists(file.path(dir_inputs,"ATAC"))) {
           sc1links         <- NULL
         }
 
-if (file.exists(file.path(dir_inputs, "markergenes_lists.parquet"))) {
-  markers_list <- file.path(dir_inputs, "markergenes_lists.parquet")
-} else {
-  markers_list <- NULL 
-}
 
 assays <- __ASSAYS__ # still unclear if I am using this for anything
 assays_vec <- unique(sc1conf$assay)
@@ -516,21 +546,29 @@ tab_panels <- lapply(tab_ids, function(k) {
 
 
 
- ui <- fluidPage( theme = shinytheme("cerulean"),
+ ui <- fluidPage( 
       tags$head(
         tags$style(HTML(".shiny-output-error-validation {color: red; font-weight: bold;}")),
-        tags$style(HTML(".navbar{min-height:36px;} .navbar-default .navbar-nav>li>a{padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;} .navbar-default .navbar-brand{padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;border-right:1px solid rgba(255,255,255,0.3);margin-right:4px;} .navbar-collapse{padding-top:0;padding-bottom:0;}"))
-      ),
+        tags$style(HTML(".navbar-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;} .navbar{min-height:36px;} .navbar-default .navbar-nav>li>a{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;} .navbar-default .navbar-brand{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;border-right:1px solid rgba(255,255,255,0.3);margin-right:4px;} .navbar-collapse{padding-top:0;padding-bottom:0;} .btn-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;} .btn-default:hover,.btn-default:focus,.btn-default:active{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;filter:brightness(0.92);}"))
+    ),
       do.call(navbarPage, c(list(title = app_title), tab_panels)),
       tags$hr(),
-      tags$p(
-        style = "font-size: 90%; color: #666;",
-        em(
-          "This application was generated using ShinyCellModular. ",
-          "Tabs are dynamically loaded from modular components.",
-          "Monash Genomics and Bioinformatics Platform. ShinyCellModular: ShinyCell Package Customized by MGBP v.1 Date: Jan 2026"
-        )
-      ),
+tags$p(
+  style = "font-size: 90%; color: #666;",
+  em(
+    "This application was generated using ",
+    tags$a(
+      "ShinyCellModular",
+      href   = "https://github.com/MonashBioinformaticsPlatform/ShinyCellModular",
+      target = "_blank"
+    ),
+    paste0(
+      " v__SCM_VERSION__",
+      ": a modular Shiny framework for single-cell data exploration developed by the ",
+      "Monash Genomics and Bioinformatics Platform (MGBP), extending the ShinyCell package"
+    )
+  )
+),
       br(), br(), br(), br(), br()
     )
   
@@ -576,13 +614,18 @@ shinyApp(ui, server)
 
 # I cant use sprintf to print template. error: 'fmt' length exceeds maximal format length 8192
 #app_modules <- sprintf(template_app,app_title, dir_inputs, assays_str, enabled_tabs_str)
+shinyCellModularVersion<-packageVersion("ShinyCellModular")
 
 template_app <- gsub("__APP_TITLE__",    app_title,        template_app, fixed = TRUE)
 template_app <- gsub("__DIR_INPUTS__",   dir_inputs,       template_app, fixed = TRUE)
 template_app <- gsub("__ASSAYS__",       assays_str,       template_app, fixed = TRUE)
 template_app <- gsub("__ENABLED_TABS__", enabled_tabs_str, template_app, fixed = TRUE)
+template_app <- gsub("__NAVBAR_COLOR__", navbar_color, template_app, fixed = TRUE)
+template_app <- gsub("__SCM_VERSION__", shinyCellModularVersion, template_app, fixed = TRUE)
 
-app_path <- file.path(shiny.dir, "app.R")
+
+
+app_path <- file.path(out_dir, "app.R")
 writeLines(template_app, con = app_path)
 #writeLines(app_modules, con = app_path)
 message("Wrote app.R to: ", app_path)
@@ -592,11 +635,11 @@ if (isTRUE(rsconnect.deploy)) {
   library(rsconnect)
   library(jsonlite)
   
-  rsconnect::writeManifest(appDir = shiny.dir)
-  message("Wrote rsconnect manifest in: ", shiny.dir)
+  rsconnect::writeManifest(appDir = out_dir)
+  message("Wrote rsconnect manifest in: ", out_dir)
   
-  dir_prefix <- shiny.dir
-  manifest_path <- file.path(shiny.dir, "manifest.json")
+  dir_prefix <- out_dir
+  manifest_path <- file.path(out_dir, "manifest.json")
   m <- jsonlite::fromJSON(manifest_path, simplifyVector = FALSE)
   
   stopifnot(!is.null(m$files))

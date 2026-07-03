@@ -542,7 +542,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
         sc1conf, sc1meta,
         input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2,
         input$sc1a1sub1, input$sc1a1sub2,
-        file.path(dir_inputs, "sc1gexpr.h5"),
+        file.path(dir_inputs,"RNA","sc1gexpr.h5"),
         sc1gene,
         input$sc1a1siz, input$sc1a1col2, input$sc1a1ord2,
         input$sc1a1fsz, input$sc1a1asp, input$sc1a1txt
@@ -569,7 +569,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
             sc1conf, sc1meta,
             input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2,
             input$sc1a1sub1, input$sc1a1sub2,
-            file.path(dir_inputs, "sc1gexpr.h5"),
+            file.path(dir_inputs,"RNA","sc1gexpr.h5"),
             sc1gene,
             input$sc1a1siz, input$sc1a1col2, input$sc1a1ord2,
             input$sc1a1fsz, input$sc1a1asp, input$sc1a1txt
@@ -592,7 +592,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
             sc1conf, sc1meta,
             input$sc1a1drX, input$sc1a1drY, input$sc1a1inp2,
             input$sc1a1sub1, input$sc1a1sub2,
-            file.path(dir_inputs, "sc1gexpr.h5"),
+            file.path(dir_inputs,"RNA","sc1gexpr.h5"),
             sc1gene,
             input$sc1a1siz, input$sc1a1col2, input$sc1a1ord2,
             input$sc1a1fsz, input$sc1a1asp, input$sc1a1txt
@@ -607,7 +607,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
         sc1conf, sc1meta,
         input$sc1a1inp1, input$sc1a1inp2,
         input$sc1a1sub1, input$sc1a1sub2,
-        file.path(dir_inputs, "sc1gexpr.h5"),
+        file.path(dir_inputs,"RNA","sc1gexpr.h5"),
         sc1gene,
         input$sc1a1splt
       )

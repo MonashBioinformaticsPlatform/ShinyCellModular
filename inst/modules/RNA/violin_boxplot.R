@@ -232,7 +232,47 @@ scVioBox_ui <- function(id, sc1conf, sc1def) {
                        choices = c("Quartile", "Decile"),
                        selected = "Decile", inline = TRUE),
           DT::DTOutput(ns("sc1c1.dt"))
+        ),
+        
+        ######################## ???MARKERGENES
+        actionButton(ns("sc1c1tog10"), "Show Marker Genes Per Cluster"),
+        
+        conditionalPanel(
+          condition = sprintf("input['%s'] %% 2 == 1", ns("sc1c1tog10")),
+          
+          h4("Marker Genes"),
+          
+          radioButtons(
+            ns("sc1c1splt_test"),
+            "Order top genes by:",
+            choices = c(
+              "logFC and Adj Pval (Wilcox)",
+              "AUC (ROC)",
+              "Average Expression",
+              "% Expression In Cluster"
+            ),
+            selected = "AUC (ROC)",
+            inline = TRUE
+          ),
+          
+          selectInput(
+            ns("resolution"),
+            "Clustering resolution:",
+            choices = sc1conf$UI[grep("res", sc1conf$UI)],
+            selected = sc1conf$UI[grep("res", sc1conf$UI)][1],
+            multiple = FALSE
+          ),
+          
+          checkboxInput(ns("show_all"), "Show all genes", value = FALSE),
+          
+          conditionalPanel(
+            condition = sprintf("!input['%s']", ns("show_all")),
+            sliderInput(ns("top"), "Number of genes per cluster", min = 1, max = 50, value = 10, step = 1)
+          ),
+          
+          DT::DTOutput(ns("sc1c1_dtmarkers"))
         )
+        ##############################
       )
     )
   )
@@ -353,7 +393,7 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
         sc1conf, sc1meta,
         input$sc1c1inp1, input$sc1c1inp2,
         input$sc1c1sub1, input$sc1c1sub2,
-        file.path(dir_inputs, "sc1gexpr.h5"),
+        file.path(dir_inputs,"RNA","sc1gexpr.h5"),
         sc1gene,
         input$sc1c1typ, input$sc1c1pts,
         input$sc1c1siz, input$sc1c1fsz,
@@ -374,7 +414,7 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
         sc1conf, sc1meta,
         input$sc1c1inp1, input$sc1c1inp2,
         input$sc1c1sub1, input$sc1c1sub2,
-        file.path(dir_inputs, "sc1gexpr.h5"),
+        file.path(dir_inputs,"RNA","sc1gexpr.h5"),
         sc1gene,
         input$sc1c1splt,
         x_order = x_order_final()
@@ -388,6 +428,134 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
       ) %>%
         DT::formatRound(columns = "pctExpress", digits = 2)
     }, server = FALSE)
+    
+    ################################ ???
+    # Table (Marker Genes)
+    
+    output$sc1c1_dtmarkers <- DT::renderDT(server = FALSE, {
+      
+      req(markers_list)
+      
+      resolution_selection <- paste0(input$resolution)
+      top_selection <- input$top
+      
+      ds <- arrow::open_dataset(markers_list)
+      
+      if (isTRUE(input$show_all)) {
+        df <- ds |>
+          dplyr::filter(annotation == resolution_selection) |>
+          dplyr::collect()
+        
+        DT::datatable(
+          df,
+          extensions = c("Buttons"),
+          options = list(
+            dom = "Bfrtip",
+            buttons = list(
+              list(
+                extend = "csv",
+                text = "Download Full Results",
+                filename = paste0("MarkersList_", resolution_selection),
+                exportOptions = list(modifier = list(page = "all"))
+              )
+            )
+          )
+        )
+      } else {
+        top_gene <- as.integer(input$top)
+        rank_by_selection <- input$sc1c1splt_test
+        
+        observeEvent(markers_list, {
+          ds <- arrow::open_dataset(markers_list)
+          message("marker columns: ", paste(names(ds), collapse = ", "))
+        })
+        
+        if (rank_by_selection == "logFC and Adj Pval (Wilcox)") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, logFC, padj) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("padj", "logFC", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (padj, logFC, group)."))
+          
+          df <- df |>
+            dplyr::filter(padj < 0.05) |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(logFC), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else if (rank_by_selection == "AUC (ROC)") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, auc, pct_in, pct_out) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("auc", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (auc, group)."))
+          
+          df <- df |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(auc), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else if (rank_by_selection == "Average Expression") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, avgExpr, pct_in, pct_out) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("avgExpr", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (avgExpr, group)."))
+          
+          df <- df |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(avgExpr), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else if (rank_by_selection == "% Expression In Cluster") {
+          
+          df <- ds |>
+            dplyr::filter(annotation == resolution_selection) |>
+            dplyr::select(feature, group, pct_in, pct_out) |>
+            dplyr::collect()
+          
+          shiny::validate(need(all(c("pct_in", "group") %in% names(df)),
+                               "Expected columns not found. Check your parquet columns (pct_in, group)."))
+          
+          df <- df |>
+            dplyr::group_by(group) |>
+            dplyr::arrange(dplyr::desc(pct_in), .by_group = TRUE) |>
+            dplyr::slice_head(n = top_gene)
+          
+        } else {
+          shiny::validate(need(FALSE, paste0("Unknown ranking option: ", rank_by_selection)))
+        }
+        
+        shiny::validate(need(!is.null(df) && nrow(df) > 0, "No rows after filtering. Try a different resolution or relax filters."))
+        
+        DT::datatable(
+          df,
+          extensions = c("Buttons"),
+          options = list(
+            dom = "Bfrtip",
+            buttons = list(
+              list(
+                extend = "csv",
+                text = "Download Top Genes",
+                filename = paste0("SubsetMarkersList_top",top_gene,"_", resolution_selection),
+                exportOptions = list(modifier = list(page = "all"))
+              )
+            )
+          )
+        )
+      }
+    })
+    
+    ################################ 
     
     output$sc1c1oup.pdf <- downloadHandler(
       filename = function() {
@@ -404,7 +572,7 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
             sc1conf, sc1meta,
             input$sc1c1inp1, input$sc1c1inp2,
             input$sc1c1sub1, input$sc1c1sub2,
-            file.path(dir_inputs, "sc1gexpr.h5"),
+            file.path(dir_inputs,"RNA","sc1gexpr.h5"),
             sc1gene,
             input$sc1c1typ, input$sc1c1pts,
             input$sc1c1siz, input$sc1c1fsz,
@@ -429,7 +597,7 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
             sc1conf, sc1meta,
             input$sc1c1inp1, input$sc1c1inp2,
             input$sc1c1sub1, input$sc1c1sub2,
-            file.path(dir_inputs, "sc1gexpr.h5"),
+            file.path(dir_inputs,"RNA","sc1gexpr.h5"),
             sc1gene,
             input$sc1c1typ, input$sc1c1pts,
             input$sc1c1siz, input$sc1c1fsz,

@@ -1,55 +1,17 @@
 Package: ShinyCellModular
-Title: ShinyCellModular: Modular Shiny App for Single Cell Data
-    Exploration
-Version: 1.0.1
-Authors@R: 
-    person("Laura", "Perlaza-Jimenez", , "laura.perlaza-jimenez@monash.edu", role = c("aut", "cre"))
-Description: A modular version of ShinyCell developed at the Monash
-    Genomics and Bioinformatics Platform (MGBP). Each module is a
-    self-contained tab in the app. Supports large scRNAseq and multimodal
-    datasets with fast on-demand HDF5 access, extended visualisations,
-    improved filtering, and publication-ready plots. Its modular structure
-    makes it flexible, scalable, and easy to customise.
+Title: ShinyCellModular: Modular Shiny App for Single Cell Data Exploration
+Version: 1.0.1.39
+Authors@R: person("Laura", "Perlaza-Jimenez", , "laura.perlaza-jimenez@monash.edu", role = c("aut", "cre"))
+Description: A modular version of ShinyCell developed at the Monash Genomics and Bioinformatics Platform (MGBP). Each module is a self-contained
+                tab in the app. Supports large scRNAseq and multimodal datasets with fast on-demand HDF5 access, extended visualisations, improved
+                filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise.
 License: MIT + file LICENSE
 URL: https://github.com/MonashBioinformaticsPlatform/ShinyCellModular
-BugReports: 
-    https://github.com/MonashBioinformaticsPlatform/ShinyCellModular/issues
+BugReports: https://github.com/MonashBioinformaticsPlatform/ShinyCellModular/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
-    arrow,
-    jsonlite,
-    methods,
-    rsconnect
-Suggests: 
-    BiocManager,
-    data.table,
-    dplyr,
-    DT,
-    edgeR,
-    ggdendro,
-    ggforce,
-    ggplot2,
-    ggrepel,
-    ggseqlogo,
-    gridExtra,
-    hdf5r,
-    limma,
-    magrittr,
-    Matrix,
-    plotly,
-    presto,
-    purrr,
-    RColorBrewer,
-    Seurat,
-    shiny,
-    ShinyCell,
-    shinydashboard,
-    shinyhelper,
-    shinyjs,
-    shinythemes,
-    Signac,
-    sortable,
-    stringr,
-    tidyr
+Imports: arrow, jsonlite, methods, rsconnect
+Suggests: BiocManager, data.table, dplyr, DT, edgeR, ggdendro, ggforce, ggplot2, ggrepel, ggseqlogo, gridExtra, hdf5r, limma, magrittr, Matrix,
+                plotly, presto, purrr, RColorBrewer, Seurat, shiny, ShinyCell, shinydashboard, shinyhelper, shinyjs, shinythemes, Signac, sortable,
+                stringr, tidyr

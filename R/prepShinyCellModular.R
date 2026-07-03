@@ -1,11 +1,69 @@
 #' @importFrom stats na.omit
 #' @importFrom utils install.packages
 NULL
+
+#' Prepare a Seurat object for ShinyCellModular
+#'
+#' Takes a Seurat object from single cell experiments and prepares all files
+#' needed to run a ShinyCellModular interactive Shiny app. Writes HDF5 counts,
+#' ShinyCell config files, optional 3D UMAP, marker genes, and motif data to
+#' \code{out_dir}.
+#'
+#' @param seurat_obj Seurat object. Alternative to \code{seurat_rds}.
+#' @param seurat_rds Path to a \code{.rds} Seurat object. Alternative to \code{seurat_obj}.
+#' @param out_dir Output directory. Default: \code{'Files_ShinyCell'}.
+#' @param shiny_title Title for the Shiny app.
+#' @param assays_selected Assay(s) to process. e.g. \code{c('RNA', 'ATAC')}. Default: \code{'RNA'}.
+#' @param ident_col Column to set as Idents. Default: \code{NULL} (uses existing).
+#' @param do_variable_features Run \code{FindVariableFeatures} before creating the ShinyCell config. Default: \code{TRUE}.
+#' @param do_markers Compute marker genes with presto. Default: \code{FALSE}.
+#' @param markers_file Path for output markers parquet file. Default: auto.
+#' @param markers_overwrite Overwrite existing markers file. Default: \code{FALSE}.
+#' @param markers_res_pattern Regex pattern to find resolution columns. Default: \code{'res\\\\.'}.
+#' @param do_umap3d Run 3D UMAP. Default: \code{FALSE}.
+#' @param umap3d_reductions Reductions to use as input for 3D UMAP. Default: \code{c('pca')}.
+#' @param umap3d_dims Dims to pass to UMAP (auto-capped to available). Default: \code{1:30}.
+#' @param umap3d_name_suffix Suffix appended to the 3D UMAP reduction name. Default: \code{'_umap3d'}.
+#' @param do_counts_h5 Write raw counts to HDF5. Default: \code{TRUE}.
+#' @param counts_h5_file Path for output H5 file. Default: auto.
+#' @param counts_overwrite Overwrite existing H5 file. Default: \code{TRUE}.
+#' @param counts_layer Seurat layer to use for counts. Default: \code{'counts'}.
+#' @param do_make_app Run \code{makeShinyApp}. Default: \code{TRUE}.
+#' @param gene_mapping Map gene names in ShinyCell. Default: \code{TRUE}.
+#' @param install_missing Auto-install missing packages. Default: \code{FALSE}.
+#' @param verbose Print progress messages. Default: \code{TRUE}.
+#' @param do_motifs Extract motifs from ATAC assay. Runs automatically when ATAC is in
+#'   \code{assays_selected} and the motifs slot is populated. Set to \code{FALSE} to skip.
+#'   Default: \code{'auto'}.
+#' @param motifs_findmotifs Output of \code{FindMotifs()}, adds enrichment scores. Default: \code{NULL}.
+#' @param motifs_overwrite Overwrite existing motif files. Default: \code{TRUE}.
+#' @param fragments_paths Optional named list of fragment file path overrides by index.
+#'   e.g. \code{list('1' = '/path/to/sample1.tsv.gz')}. If \code{NULL}, paths are copied
+#'   from the original paths in the object. Default: \code{NULL}.
+#' @param custom_colors Named character vector of label -> hex color to override ShinyCell
+#'   default colors. Extra names not in the data are ignored. Default: \code{NULL}.
+#' @param default_genes Character vector of gene names to set as defaults in the app
+#'   (e.g. \code{c('CD4', 'CD8A')}). If \code{NULL}, ShinyCell picks its own defaults.
+#'   Default: \code{NULL}.
+#' @param help Print the help message and return. Default: \code{FALSE}.
+#'
+#' @return Invisibly returns \code{NULL}. Writes output files to \code{out_dir}.
+#'
+#' @examples
+#' \dontrun{
+#' prepShinyCellModular(
+#'   seurat_rds = "seurat_object.rds",
+#'   out_dir    = "my_app_files",
+#'   do_umap3d  = TRUE,
+#'   do_markers = TRUE
+#' )
+#' }
+#'
 #' @export
 prepShinyCellModular <- function(
     seurat_obj = NULL,
     seurat_rds = NULL,
-    out_dir = "Files_ShinyCell",
+    out_dir = "ShinyCellModular_app",
     shiny_title = "ShinyCellModular Intermediate",
     assays_selected = "RNA", #c("RNA","ATAC","regulon","chromvar") 
     ident_col = NULL,
@@ -35,6 +93,7 @@ prepShinyCellModular <- function(
     # e.g. list("1" = "/path/to/sample1.tsv.gz", "2" = "/path/to/sample2.tsv.gz")
     # if NULL, prepShinyCellModular will try to copy from the original paths in the object
     custom_colors = NULL, # add here custom colors
+    default_genes=NULL,
     help = FALSE
 ) {
   
@@ -75,6 +134,9 @@ prepShinyCellModular <- function(
     "  motifs_overwrite      Overwrite existing motif files. Default: TRUE\n",
     "  fragments_paths       Named list of fragment file path overrides by index.\n",
     "                        e.g. list('1' = '/path/to/sample1.tsv.gz'). Default: NULL\n",
+    "custom_colors           Named character vector of label -> hex color to override ShinyCell default colors.", 
+    "                        Extra names not in the data are ignored. Default: DEfault: NULL.",
+    "default_genes           Vector of default genes",
     "  help                  Print this help message. Default: FALSE\n"
   )
   
@@ -121,15 +183,13 @@ prepShinyCellModular <- function(
       seurat_obj <- Seurat::FindVariableFeatures(seurat_obj)
     }
     .msg("Creating ShinyCell config")
-    scConf <- ShinyCell::createConfig(seurat_obj)
+    scConf <- ShinyCell::createConfig(seurat_obj, maxLevels = 100)
     
-    if (active_assay == "RNA") {
-      out_dir_path <- out_dir
-    } else {
-      out_dir_path <- file.path(out_dir, active_assay)
-    }
+    # make a folder per assay for the input files
+    out_dir_path <- file.path(out_dir, active_assay)
+    
     .msg("Running makeShinyApp into: ", out_dir_path)
-    ShinyCell::makeShinyApp(
+    shinyapp_args <- list(
       seurat_obj,
       scConf,
       gex.assay    = active_assay,
@@ -137,6 +197,8 @@ prepShinyCellModular <- function(
       shiny.title  = shiny_title,
       shiny.dir    = out_dir_path
     )
+    if (!is.null(default_genes)) shinyapp_args$default.multigene <- default_genes
+    do.call(ShinyCell::makeShinyApp, shinyapp_args)
     
     # Patch custom_colors into sc1conf.rds after makeShinyApp writes it,
     # as makeShinyApp overwrites the file ignoring any pre-patched scConf
@@ -276,21 +338,23 @@ prepShinyCellModular <- function(
     dir.create(frag_dir, recursive = TRUE, showWarnings = FALSE)
     orig_paths <- vapply(frags, function(f) Signac::GetFragmentData(f, slot = "path"), character(1))
     
-    orig_paths  <- vapply(frags, function(f) Signac::GetFragmentData(f, slot = "path"), character(1))
+    # check which orig_paths are missing and whether the user supplied overrides for them
+    missing_orig  <- which(!file.exists(orig_paths))
     user_supplied <- vapply(seq_along(frags), function(i) !is.null(fragments_paths[[as.character(i)]]), logical(1))
-    missing_idx <- which(!file.exists(orig_paths) & !user_supplied)
-    if (length(missing_idx) > 0) {
-      hint      <- paste(vapply(seq_along(frags), function(i) paste0("  \"", i, "\" = \"", orig_paths[i], "\""), character(1)), collapse = ",
-")
-      missing_p <- paste(paste0("  [", missing_idx, "] ", orig_paths[missing_idx]), collapse = "
-")
-      message(paste0("Fragment files not found:
-", missing_p, "
-
-Re-run with:
-fragments_paths = list(
-", hint, "
-)"))
+    still_missing <- missing_orig[!user_supplied[missing_orig]]
+    
+    if (length(still_missing) > 0) {
+      hint      <- paste(vapply(seq_along(frags), function(i) paste0("  \"", i, "\" = \"/path/to/fragment_", i, ".tsv.gz\""), character(1)), collapse = ",\n")
+      missing_p <- paste(paste0("  [", still_missing, "] ", orig_paths[still_missing]), collapse = "\n")
+      message(paste0("Fragment files not found:\n", missing_p, "\n\nRe-run with following order but replacing the paths for the location in your local computer:\nfragments_paths = list(\n", hint, "\n)"))
+    }
+    
+    # check that user-supplied paths actually exist before proceeding
+    if (!is.null(fragments_paths)) {
+      bad_user_paths <- Filter(function(p) !file.exists(p), unlist(fragments_paths))
+      if (length(bad_user_paths) > 0)
+        stop("Supplied fragments_paths do not exist:\n",
+             paste0("  ", bad_user_paths, collapse = "\n"), call. = FALSE)
     }
     
     frag_info <- lapply(seq_along(frags), function(i) {
@@ -299,29 +363,35 @@ fragments_paths = list(
       src_index <- paste0(src_path, ".tbi")
       cells     <- Signac::GetFragmentData(f, slot = "cells")
       
-      user_path <- fragments_paths[[as.character(i)]]
-      if (!is.null(user_path)) {
-        .msg("  Using supplied path for fragment ", i, ": ", user_path)
-        return(list(path = user_path, cells = cells, copied = FALSE))
-      }
-      
-      fname     <- paste0("fragment_", i, "_", basename(src_path))
-      dst_path  <- file.path(frag_dir, fname)
+      # each fragment gets its own index subfolder: fragments/index1/, fragments/index2/, ...
+      idx_dir   <- file.path(frag_dir, paste0("index", i))
+      dir.create(idx_dir, recursive = TRUE, showWarnings = FALSE)
+      dst_path  <- normalizePath(file.path(idx_dir, "atac_fragments.tsv.gz"), mustWork = FALSE)
       dst_index <- paste0(dst_path, ".tbi")
       
-      if (file.exists(src_path)) {
-        if (!file.exists(dst_path)) {
-          file.copy(src_path, dst_path)
-          .msg("  Copied fragment file: ", fname)
-        } else {
-          .msg("  Fragment file already exists, skipping copy: ", fname)
-        }
-        if (file.exists(src_index) && !file.exists(dst_index))
-          file.copy(src_index, dst_index)
-        list(path = dst_path, cells = cells, copied = TRUE)
-      } else {
-        list(path = dst_path, cells = cells, copied = FALSE)
+      # path relative to dir_inputs, so containers can resolve it after the data dir is remounted
+      rel_path  <- file.path("ATAC", "fragments", paste0("index", i), "atac_fragments.tsv.gz")
+      
+      # prefer orig_path if it exists, fall back to user-supplied
+      user_path  <- fragments_paths[[as.character(i)]]
+      active_src <- if (file.exists(src_path)) src_path else user_path
+      active_idx <- paste0(active_src, ".tbi")
+      
+      if (is.null(active_src)) {
+        .msg("  Fragment ", i, " not available — skipping copy")
+        return(list(path = rel_path, cells = cells, index = i, copied = FALSE))
       }
+      
+      if (!file.exists(dst_path)) {
+        file.copy(active_src, dst_path)
+        .msg("  Copied fragment ", i, " to: ", dst_path)
+      } else {
+        .msg("  Fragment ", i, " already exists, skipping copy: ", dst_path)
+      }
+      if (file.exists(active_idx) && !file.exists(dst_index))
+        file.copy(active_idx, dst_index)
+      
+      list(path = rel_path, cells = cells, index = i, copied = TRUE)
     })
     names(frag_info) <- as.character(seq_along(frags))
     
@@ -334,8 +404,11 @@ fragments_paths = list(
   # File path defaults
   ###########################################################################
   
-  if (is.null(markers_file))   markers_file   <- file.path(out_dir, "markergenes_lists.parquet")
-  if (is.null(counts_h5_file)) counts_h5_file <- file.path(out_dir, "sc1counts.h5")
+ # if (is.null(markers_file))   markers_file   <- file.path(out_dir, "markergenes_lists.parquet")
+#  if (is.null(counts_h5_file)) counts_h5_file <- file.path(out_dir, "sc1counts.h5")
+  
+  if (is.null(markers_file))   markers_file   <- file.path(out_dir, "RNA", "markergenes_lists.parquet")
+  if (is.null(counts_h5_file)) counts_h5_file <- file.path(out_dir, "RNA", "sc1counts.h5")
   
   ###########################################################################
   # Dependency Check
@@ -348,26 +421,32 @@ fragments_paths = list(
     "sortable", "plotly", "RColorBrewer", "ggforce", "Seurat"
   )
   
+ 
+  if ("ATAC" %in% assays_selected) cran_pkgs <- unique(c(cran_pkgs, "Signac"))
+  
+  
   
   # GitHub-only packages: cannot be installed via install.packages()
-  for (.gh_pkg in list(
+  for (.gh_pkg in Filter(Negate(is.null), list(
     list(pkg = "ShinyCell",  repo = "SGDDNB/ShinyCell"),
     list(pkg = "ggseqlogo",  repo = "omarwagih/ggseqlogo"),
-    list(pkg = "FlexDotPlot", repo = "Simon-Leonard/FlexDotPlot")
-  )) {
+    list(pkg = "FlexDotPlot", repo = "Simon-Leonard/FlexDotPlot"),
+    if (isTRUE(do_markers))          list(pkg = "presto", repo = "immunogenomics/presto")
+    
+  ))) {
     if (!requireNamespace(.gh_pkg$pkg, quietly = TRUE)) {
       if (!isTRUE(install_missing)) {
         stop("Missing GitHub package: ", .gh_pkg$pkg,
              "\nInstall with: devtools::install_github('", .gh_pkg$repo, "')", call. = FALSE)
       }
-      if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
-      devtools::install_github(.gh_pkg$repo)
+      if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
+      remotes::install_github(.gh_pkg$repo)
     }
   }
   # Bioconductor packages
   bioc_pkgs <- c("limma", "edgeR")
   
-  if (isTRUE(do_markers)) cran_pkgs <- unique(c(cran_pkgs, "presto"))
+
   
   missing_cran <- cran_pkgs[!vapply(cran_pkgs, requireNamespace, logical(1), quietly = TRUE)]
   missing_bioc <- bioc_pkgs[!vapply(bioc_pkgs, requireNamespace, logical(1), quietly = TRUE)]
@@ -386,6 +465,7 @@ fragments_paths = list(
     }
     if (length(missing_cran) > 0) {
       .msg("Installing CRAN packages: ", paste(missing_cran, collapse = ", "))
+      setRepositories(ind = 1:3)  # needed to automatically install Bioconductor dependencies (e.g. Signac)
       install.packages(missing_cran)
     }
     if (length(missing_bioc) > 0) {
@@ -418,7 +498,21 @@ fragments_paths = list(
     return(invisible(NULL))
   }
   
+  if (!is.null(seurat_obj) && is.character(seurat_obj)) {
+    warning("seurat_obj is a character path  -  did you mean to use seurat_rds instead? Passing a file path to seurat_obj will fail since it is not read from disk.", call. = FALSE)
+  }
   if (!is.null(seurat_rds)) {
+    if (!is.character(seurat_rds)) {
+      warning("seurat_rds is not a character path  -  did you mean to use seurat_obj instead? Passing an already-loaded Seurat object to seurat_rds will fail inside readRDS().", call. = FALSE)
+    } else if (!file.exists(seurat_rds)) {
+      stop(
+        "Cannot find seurat_rds: ", seurat_rds, "\n",
+        "Current working directory: ", getwd(), "\n",
+        "Check that you are running this from the correct project folder,\n",
+        "or provide the full/absolute path to seurat_rds.",
+        call. = FALSE
+      )
+    }
     .msg("Loading Seurat object from: ", seurat_rds)
     seurat_obj <- readRDS(seurat_rds)
   }
@@ -463,6 +557,10 @@ fragments_paths = list(
     # RNA ASSAY
     ###########################################################################  
     if (active_assay == "RNA") {
+      
+      rna_out_dir <- file.path(out_dir, "RNA")
+      if (!dir.exists(rna_out_dir))
+        dir.create(rna_out_dir, recursive = TRUE, showWarnings = FALSE)
       
       if (!is.null(ident_col)) {
         if (!ident_col %in% colnames(seurat_obj@meta.data))
@@ -577,11 +675,8 @@ fragments_paths = list(
     
     if (isTRUE(do_counts_h5)) {
       .need_pkg("hdf5r")
-      h5_path <- if (active_assay == "RNA") {
-        counts_h5_file
-      } else {
+      h5_path <- 
         file.path(out_dir, active_assay, "sc1counts.h5")
-      }
       createcountsh5(seurat_obj, h5_path, counts_overwrite, counts_layer, active_assay)
     } else {
       .msg("Counts H5 optional is OFF, skipping counts export")

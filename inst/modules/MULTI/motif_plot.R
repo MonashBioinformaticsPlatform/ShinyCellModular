@@ -298,10 +298,15 @@ motif_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 }
 
 ############################################### Registration ##########################################
-
 register_tab(
-  id     = "motif_plot",
-  title  = "Motif Plot",
-  ui     = motif_plot_ui,
-  server = motif_plot_server
+  id          = "motif_plot",
+  title       = "Motif Plot",
+  ui          = motif_plot_ui,
+  server      = motif_plot_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Transcription factor motif sequence logo visualisation for ATAC-seq data, new tab created by MGBP",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )

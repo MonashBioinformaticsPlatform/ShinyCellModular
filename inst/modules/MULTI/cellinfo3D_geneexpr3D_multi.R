@@ -573,7 +573,7 @@ scDRnum3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
         inp1    = input$sc1a1inp2,
         inpsub1 = input$sc1a1sub1,
         inpsub2 = input$sc1a1sub2,
-        inpH5   = file.path(dir_inputs, "sc1gexpr.h5"),
+        inpH5   = file.path(dir_inputs,"RNA","sc1gexpr.h5"),
         inpGene = sc1gene,
         inpsiz  = input$sc1a1siz,
         inpcol  = input$sc1a1col2,
@@ -661,8 +661,14 @@ scDRnum3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
 ############################################### Registration #################################################
 
 register_tab(
-  id     = "cellinfo3D_geneexpr3D_multi",
-  title  = "CellInfo3D vs GeneExpr3D",
-  ui     = scDRnum3D_ui,
-  server = scDRnum3D_server
+  id          = "cellinfo3D_geneexpr3D_multi",
+  title       = "CellInfo3D vs GeneExpr3D Multi",
+  ui          = scDRnum3D_ui,
+  server      = scDRnum3D_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "3D cell metadata visualisation against gene expression, new tab created by MGBP",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
 )

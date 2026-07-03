@@ -22,7 +22,7 @@ sc_read_cuts <- function(path, chr, start, end) {
 # compute per-group normalised coverage across a region, matching Signac's method:
 #   normalised = roll_sum(raw_counts) / group_scale_factor * median_scale_factor
 # where group_scale_factor = n_cells_in_group * mean(nCount_ATAC) for that group
-sc_coverage <- function(frag_info, sc1meta_atac, group_col, chr, start, end, window = 100) {
+sc_coverage <- function(frag_info, sc1meta_atac, group_col, chr, start, end, window = 100,dir_inputs) {
   
   positions <- start:end
   n_pos     <- length(positions)
@@ -42,11 +42,13 @@ sc_coverage <- function(frag_info, sc1meta_atac, group_col, chr, start, end, win
   # accumulate cut counts per position per group across all fragment files
   all_cuts <- lapply(names(frag_info), function(nm) {
     fi <- frag_info[[nm]]
-    if (!file.exists(fi$path)) {
+    # fi$path is relative to dir_inputs - resolve it there if not found as-is
+    frag_path <- if (file.exists(fi$path)) fi$path else file.path(dir_inputs, fi$path)
+    if (!file.exists(frag_path)){
       warning("Fragment file not found: ", fi$path, call. = FALSE)
       return(NULL)
     }
-    res <- tryCatch(sc_read_cuts(fi$path, chr, start, end), error = function(e) NULL)
+    res <- tryCatch(sc_read_cuts(frag_path, chr, start, end), error = function(e) NULL)
     if (is.null(res) || length(res$cuts) == 0) return(NULL)
     
     # fragment file has original barcodes; frag_info$cells maps suffixed -> original
@@ -443,7 +445,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
       
       cov_df <- tryCatch(
-        sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100),
+        sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
         error = function(e) { message("Coverage error: ", conditionMessage(e)); NULL }
       )
       
@@ -483,7 +485,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
           paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
         cov_df <- tryCatch(
-          sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100),
+          sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
           error = function(e) NULL
         )
         p <- sc_combine_tracks(
@@ -513,7 +515,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
           paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
         cov_df <- tryCatch(
-          sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100),
+          sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
           error = function(e) NULL
         )
         p <- sc_combine_tracks(
@@ -527,15 +529,21 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       }
     )
   }
-)
+  )
 }
-  
-  
-    ############################################### Registration ##########################################
-    
-    register_tab(
-      id     = "coverage_plot",
-      title  = "Coverage Plot",
-      ui     = coverage_plot_ui,
-      server = coverage_plot_server
-    )
+
+
+############################################### Registration ##########################################
+
+register_tab(
+  id          = "coverage_plot",
+  title       = "Coverage Plot",
+  ui          = coverage_plot_ui,
+  server      = coverage_plot_server,
+  author      = "Laura Perlaza-Jimenez",
+  description = "Genome browser coverage tracks for ATAC-seq data, new tab created by MGBP",
+  version     = "1.0",
+  date        = "Jan 2026",
+  source      = "MGBP custom",
+  contact     = "laura.perlaza-jimenez@monash.edu"
+)
