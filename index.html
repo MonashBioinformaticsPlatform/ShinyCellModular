@@ -97,6 +97,23 @@
 
 <p align="center">
 <img src="reference/figures/ShinyCellModularLogo_banner.png" width="800"></p>
+<table class="table">
+<colgroup>
+<col width="29%">
+<col width="35%">
+<col width="35%">
+</colgroup>
+<thead><tr>
+<th align="center">Explore an Example</th>
+<th align="center">Learn More</th>
+<th align="center">Create</th>
+</tr></thead>
+<tbody><tr>
+<td align="center"><img src="reference/figures/launchapp_blue.svg" width="250" height="120" alt="“https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example”"></td>
+<td align="center"><img src="reference/figures/documentation.svg" width="250" height="120" alt="https://monashbioinformaticsplatform.github.io/ShinyCellModular/"></td>
+<td align="center"><img src="reference/figures/dev_guide.svg" width="250" height="120" alt="vignettes/developer_guide.md"></td>
+</tr></tbody>
+</table>
 <hr>
 <div class="section level2">
 <h2 id="motivation">Motivation<a class="anchor" aria-label="anchor" href="#motivation"></a>
@@ -109,29 +126,6 @@
 <h2 id="what-it-does">What it does?<a class="anchor" aria-label="anchor" href="#what-it-does"></a>
 </h2>
 <p><strong>ShinyCellModular</strong> is an R package, a modular version of <a href="https://github.com/SGDDNB/ShinyCell" class="external-link">ShinyCell</a> developed at the Monash Genomics and Bioinformatics Platform (MGBP). It takes your <a href="https://satijalab.org/seurat/" class="external-link">Seurat</a> object from single cell experiments and creates an interactive Shiny app to explore your data. Each module is a tab in the app, created individually and self-contained. <strong>ShinyCellModular</strong> supports large scRNAseq and multimodal datasets with fast on-demand HDF5 and parquet access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise and to patch.</p>
-</div>
-<div class="section level2">
-<h2 id="explore-an-example">Explore an Example<a class="anchor" aria-label="anchor" href="#explore-an-example"></a>
-</h2>
-<p><br></p>
-<p><a href="https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example" class="external-link"> <img src="reference/figures/launchapp_blue.svg" width="320" height="170"></a></p>
-<p><br><br></p>
-</div>
-
-<div class="section level1">
-<div class="page-header"><h1 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
-</h1></div>
-<p><br></p>
-<p><a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/"> <img src="reference/figures/documentation.svg" width="320" height="170"></a></p>
-<p><br><br></p>
-</div>
-
-<div class="section level1">
-<h1 id="developer-guide">Developer Guide<a class="anchor" aria-label="anchor" href="#developer-guide"></a>
-</h1>
-<p><br></p>
-<p><a href="vignettes/developer_guide.html"> <img src="reference/figures/dev_guide.svg" width="320" height="170"></a></p>
-<p><br><br></p>
 </div>
 <div class="section level2">
 <h2 id="features">Features<a class="anchor" aria-label="anchor" href="#features"></a>
@@ -160,7 +154,7 @@
 <p>Install the package directly from GitHub:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"MonashBioinformaticsPlatform/ShinyCellModular"</span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/MonashBioinformaticsPlatform/ShinyCellModular" class="external-link">ShinyCellModular</a></span><span class="op">)</span></span></code></pre></div>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/">ShinyCellModular</a></span><span class="op">)</span></span></code></pre></div>
 <p>The first time you run <code>prepShinyCellModular</code> add <code>install_missing = TRUE</code> to auto-install any missing dependencies:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/prepShinyCellModular.html">prepShinyCellModular</a></span><span class="op">(</span>install_missing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
@@ -171,7 +165,7 @@
 <a class="anchor" aria-label="anchor" href="#id_2-prepshinycellmodular"></a>
 </h3>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/MonashBioinformaticsPlatform/ShinyCellModular" class="external-link">ShinyCellModular</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/">ShinyCellModular</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Prepare seurat object, checks Key names, creates sc1counts.h5, adds a 3D UMAP reduction, identify marker genes for all resolutions</span></span>
 <span><span class="fu"><a href="reference/prepShinyCellModular.html">prepShinyCellModular</a></span><span class="op">(</span>seurat_rds <span class="op">=</span> <span class="st">"seurat_object.rds"</span>, <span class="co"># or seurat_obj = cnts,</span></span>
