@@ -1,7 +1,5 @@
-# ShinyCellModular
-
 <p align="center">
-  <img src="images/ShinyCellModularLogo_banner.png" width="550">
+  <img src="images/ShinyCellModularLogo_banner.png" width="800">
 </p>
 
 ***
