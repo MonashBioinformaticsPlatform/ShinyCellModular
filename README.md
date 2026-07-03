@@ -1,4 +1,9 @@
 # ShinyCellModular
+
+<p align="center">
+  <img src="images/ShinyCellModularLogo.png" width="150">
+</p>
+
 ***
 ## Motivation
 
