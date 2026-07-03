@@ -15,8 +15,20 @@ That architecture is what lets us keep customising ShinyCellModular for our own 
 
 **ShinyCellModular** is an R package, a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). It takes your [Seurat](https://satijalab.org/seurat/) object from single cell experiments and creates an interactive Shiny app to explore your data. Each module is a tab in the app, created individually and self-contained. **ShinyCellModular** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 and parquet access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise and to patch.
 
-[Example of ShinyCellModular app and tutorials](https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example)
- 
+
+## Explore an Example
+
+<br>
+
+<a href="https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example">
+  <img src="man/figures/button.svg" width="320" height="70"/>
+</a>
+
+<br><br>
+
+</div>
+
+
 Review Docs for further information on [developer guide](vignettes/developer_guide.md)     
 
 ## Features
