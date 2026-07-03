@@ -1,4 +1,4 @@
-![](images/ShinyCellModularLogo_banner.png)
+![](reference/figures/ShinyCellModularLogo_banner.png)
 
 ------------------------------------------------------------------------
 
