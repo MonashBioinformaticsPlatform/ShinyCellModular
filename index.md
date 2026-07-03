@@ -1,6 +1,6 @@
 # ShinyCellModular
 
-![](images/ShinyCellModularLogo.png)
+![](images/ShinyCellModularLogo_banner.png)
 
 ------------------------------------------------------------------------
 
