@@ -9,7 +9,7 @@ Description: A modular version of ShinyCell developed at the Monash Genomics and
            publication-ready plots. Its modular structure makes it flexible, scalable, and easy to
            customise.
 License: MIT + file LICENSE
-URL: https://github.com/MonashBioinformaticsPlatform/ShinyCellModular
+URL: https://monashbioinformaticsplatform.github.io/ShinyCellModular/
 BugReports: https://github.com/MonashBioinformaticsPlatform/ShinyCellModular/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
