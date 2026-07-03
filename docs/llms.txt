@@ -1,4 +1,4 @@
-# ShinyCellModular
+![](images/ShinyCellModularLogo_banner.png)
 
 ------------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ our own researchers over time, rather than accumulating one-off patches
 that get harder to maintain with every request. We build most tabs
 ourselves, driven by real project needs, but the module structure is
 deliberately open: see [creating your own
-modules/tabs](https://monashbioinformaticsplatform.github.io/ShinyCellModular/documentation/developer_guide.md)
+modules/tabs](https://monashbioinformaticsplatform.github.io/ShinyCellModular/vignettes/developer_guide.md)
 if you want to build on it or adapt it for your own group.
 
 ## What it does?
@@ -48,7 +48,7 @@ customise and to patch.
 tutorials](https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example)
 
 Review Docs for further information on [developer
-guide](https://monashbioinformaticsplatform.github.io/ShinyCellModular/documentation/developer_guide.md)
+guide](https://monashbioinformaticsplatform.github.io/ShinyCellModular/vignettes/developer_guide.md)
 
 ## Features
 
@@ -92,7 +92,7 @@ Run the 2 helper functions
 and
 [`useShinyCellModular()`](https://monashbioinformaticsplatform.github.io/ShinyCellModular/reference/useShinyCellModular.md)
 
-### 2. [`prepShinyCellModular()`](https://monashbioinformaticsplatform.github.io/ShinyCellModular/documentation/prepShinyCellModular_explained.md)
+### 2. [`prepShinyCellModular()`](https://monashbioinformaticsplatform.github.io/ShinyCellModular/vignettes/prepShinyCellModular_explained.md)
 
 ``` r
 
@@ -108,7 +108,7 @@ prepShinyCellModular(seurat_rds = "seurat_object.rds", # or seurat_obj = cnts,
                      )
 ```
 
-### 3. [`useShinyCellModular()`](https://monashbioinformaticsplatform.github.io/ShinyCellModular/documentation/useShinyCellModular_explained.md)
+### 3. [`useShinyCellModular()`](https://monashbioinformaticsplatform.github.io/ShinyCellModular/vignettes/useShinyCellModular_explained.md)
 
 ``` r
 
