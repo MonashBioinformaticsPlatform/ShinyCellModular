@@ -6,16 +6,15 @@ Single-cell apps rarely stay static once a lab starts using them: labels get reo
 
 Most ShinyCell-derived apps are one large, cross-referenced script: tabs share state and call into each other, so touching one thing risks breaking another. ShinyCellModular restructures this as a plugin system: every tab is a self-contained R file (UI + server + `register_tab()`), discovered automatically at build time from a directory listing, with no hard-coded catalogue to edit. Add a tab by dropping in a file; remove one without touching anything else; hand a tab to a team member without them needing to understand the rest of the app.
 
-That architecture is what lets us keep customising ShinyCellModular for our own researchers over time, rather than accumulating one-off patches that get harder to maintain with every request. We build most tabs ourselves, driven by real project needs, but the module structure is deliberately open: see [creating your own modules/tabs](docs/developer_guide.md) if you want to build on it or adapt it for your own group.
+That architecture is what lets us keep customising ShinyCellModular for our own researchers over time, rather than accumulating one-off patches that get harder to maintain with every request. We build most tabs ourselves, driven by real project needs, but the module structure is deliberately open: see [creating your own modules/tabs](documentation/developer_guide.md) if you want to build on it or adapt it for your own group.
 
 ## What it does? 
 
 **ShinyCellModular** is an R package, a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). It takes your [Seurat](https://satijalab.org/seurat/) object from single cell experiments and creates an interactive Shiny app to explore your data. Each module is a tab in the app, created individually and self-contained. **ShinyCellModular** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 and parquet access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise and to patch.
 
 [Example of ShinyCellModular app and tutorials](https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example)
-
-Review Docs for further information on [functions details](docs/functions_details.md)    
-Review Docs for further information on [development instructions](docs/developer_guide.md)     
+ 
+Review Docs for further information on [developer guide](documentation/developer_guide.md)     
 
 ## Features
 
@@ -51,7 +50,7 @@ prepShinyCellModular(install_missing = TRUE)
 
 Run the 2 helper functions `prepShinyCellModular()` and `useShinyCellModular()`
 
-### 2. `prepShinyCellModular()`
+### 2. [`prepShinyCellModular()`](documentation/prepShinyCellModular_explained.md)
 
 ```r
 library(ShinyCellModular)
@@ -66,7 +65,7 @@ prepShinyCellModular(seurat_rds = "seurat_object.rds", # or seurat_obj = cnts,
                      )
 ```
 
-### 3. `useShinyCellModular()`
+### 3. [`useShinyCellModular()`](documentation/useShinyCellModular_explained.md)
 
 ```r
 # Create a new app.R with the modular ShinyCellModular tabs
@@ -86,10 +85,10 @@ To include only specific tabs pass their IDs to `enabled_tabs`:
 
 ```r
 useShinyCellModular(
-    shiny.dir    = "testing_data/",
-    data_type    = "RNA",
-    enabled_tabs = c("cellinfo_cellinfo", "violin_boxplot", "pseudobulk"),
-    app_title    = "Testing"
+                    shiny.dir    = "testing_data/",
+                    data_type    = "RNA",
+                    enabled_tabs = c("cellinfo_cellinfo", "violin_boxplot", "pseudobulk"),
+                    app_title    = "Testing"
 )
 ```
 

@@ -28,7 +28,7 @@ ShinyCellModular/
 ├── inst/
 │   └── modules/
 │       ├── RNA/                 # single-assay RNA tabs
-│       ├── RNA_ATAC/            # multiome tabs (RNA + ATAC in same object)
+│       ├── MULTI/            # multiome tabs (RNA + ATAC in same object)
 │       └── SPATIAL/             # spatial tabs
 └── DESCRIPTION / NAMESPACE / …
 ```
