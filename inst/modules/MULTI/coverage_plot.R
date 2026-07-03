@@ -429,6 +429,10 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     if (!exists("pList", inherits = TRUE))
       pList <<- c(Small = "400px", Medium = "650px", Large = "900px")
     
+    
+    # temporary debug output for fragment path troubleshooting
+    debugTxt <- reactiveVal(" THIS IS THE VALUE")
+    
     output$sc1cov_oup <- renderPlot({
       gene <- trimws(input$sc1cov_gene %||% "")
       r    <- if (nzchar(gene)) {sc_gene_region(gene, sc1annotation)} else{sc_parse_region(trimws(input$sc1cov_region %||% ""))}
@@ -444,10 +448,27 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
         paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
       
+      # temporary debug output for fragment path troubleshooting
+      frag_status <- vapply(names(sc1fragmentpaths), function(nm) {
+        fi <- sc1fragmentpaths[[nm]]
+        fp <- if (file.exists(fi$path)) fi$path else file.path(dir_inputs, fi$path)
+        paste0("  [", nm, "] ", fp, " (exists: ", file.exists(fp), ")")
+      }, character(1))
+      debugTxt(paste0(
+        "Region: ", r$chr, ":", r$start, "-", r$end, "\n",
+        "Group column: ", grp, "\n",
+        "Fragment files:\n", paste(frag_status, collapse = "\n")
+      ))
+      
       cov_df <- tryCatch(
         sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
         error = function(e) { message("Coverage error: ", conditionMessage(e)); NULL }
       )
+      
+      # temporary debug output for fragment path troubleshooting
+      debugTxt(paste0(debugTxt(), "\n",
+                      "cov_df: ", if (is.null(cov_df)) "NULL" else paste0(nrow(cov_df), " rows, groups: ", paste(unique(cov_df$group), collapse = ", "))
+      ))
       
       track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end)
       track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end)           else NULL
@@ -468,6 +489,9 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     output$sc1cov_oup.ui <- renderUI({
       plotOutput(ns("sc1cov_oup"), height = pList[input$sc1cov_psz])
     })
+    
+    # temporary debug output for fragment path troubleshooting
+    output$sc1cov_debug <- renderText({ debugTxt() })
     
     output$sc1cov_pdf <- downloadHandler(
       filename = function() paste0("coverage_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf"),

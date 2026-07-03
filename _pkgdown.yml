@@ -1,0 +1,14 @@
+url: https://monashbioinformaticsplatform.github.io/ShinyCellModular/
+
+template:
+  package: rotemplate
+
+reference:
+- title: Core functions
+  desc: >
+    Prepare a Seurat object on disk, generate the modular Shiny app from it,
+    and scaffold a new module template.
+  contents:
+  - prepShinyCellModular
+  - useShinyCellModular
+  - templateShinyCellModular
