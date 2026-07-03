@@ -29,7 +29,28 @@ That architecture is what lets us keep customising ShinyCellModular for our own 
 </div>
 
 
-Review Docs for further information on [developer guide](vignettes/developer_guide.md)     
+# Documentation
+<br>
+
+<a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/">
+  <img src="man/figures/documentation.svg" width="320" height="170"/>
+</a>
+
+<br><br>
+
+</div>
+
+# Developer Guide
+<br>
+
+<a href="vignettes/developer_guide.md">
+  <img src="man/figures/dev_guide.svg" width="320" height="170"/>
+</a>
+
+<br><br>
+
+</div>
+
 
 ## Features
 
