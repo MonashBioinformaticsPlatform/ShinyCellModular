@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/ShinyCellModularLogo_banner.png" width="800">
+  <img src="man/figures/ShinyCellModularLogo_banner.png" width="800">
 </p>
 
 ***
