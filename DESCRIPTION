@@ -20,3 +20,6 @@ Suggests: BiocManager, data.table, dplyr, DT, edgeR, ggdendro, ggforce, ggplot2,
            rmarkdown, Seurat, shiny, ShinyCell, shinydashboard, shinyhelper, shinyjs, shinythemes,
            Signac, sortable, stringr, tidyr
 VignetteBuilder: knitr
+Remotes:
+    immunogenomics/presto,
+    SGDDNB/ShinyCell
