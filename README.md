@@ -6,7 +6,7 @@
 
 | Explore an Example |Learn More | Create |
 | :---:|  :----: | :----: |
-| !["https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example"](man/figures/launchapp_blue.svg){width=250px height=120px}|![https://monashbioinformaticsplatform.github.io/ShinyCellModular/](man/figures/documentation.svg){width=250px height=120px}| ![vignettes/developer_guide.md](man/figures/dev_guide.svg){width=250px height=120px} |
+| !["https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example"](man/figures/launchapp_blue.svg){width=250px height=120px} | ![https://monashbioinformaticsplatform.github.io/ShinyCellModular/](man/figures/documentation.svg){width=250px height=120px}  | ![vignettes/developer_guide.md](man/figures/dev_guide.svg){width=250px height=120px} |
 
 
 ***
