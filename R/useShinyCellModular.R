@@ -57,37 +57,6 @@ useShinyCellModular <- function(
   # Help
   ###########################################################################
   
-  helpMessage <- paste0(
-    "useShinyCellModular()  -  Generate a modular ShinyCellModular Shiny app\n",
-    "\n",
-    "ARGUMENTS\n",
-    "  out_dir                  Directory containing prepared ShinyCell output files (sc1conf.rds etc.)\n",
-    "  shinycellmodular.dir.src   Path to ShinyCellModular source containing modules/. Default: system.file('modules', package='ShinyCellModular')\n",
-    "  rsconnect.deploy           Write rsconnect manifest for deployment. Default: FALSE\n",
-    "  data_type                  Type of data: 'RNA', 'ATAC', 'MULTI' or 'SPATIAL' ",
-    "  enabled_tabs               Character vector of tab IDs to include. Default: NULL (all tabs for data_type)\n",
-    "  overwrite_modules          Remove and replace existing modules/ folder. Default: FALSE\n",
-    "  disable_ui_server          Rename legacy ui.R and server.R to .bak. Default: TRUE\n",
-    "  app_title                  Title shown in the app navbar. Required.\n",
-    "  navbar_color               Customise nabar color, default is blue.\n",
-    "  help                       Print this help message. Default: FALSE\n",
-    "\n",
-    "OUTPUTS\n",
-    "  app.R written to out_dir\n",
-    "  modules/ folder copied into out_dir\n",
-    "  manifest.json written if rsconnect.deploy = TRUE\n",
-    "\n",
-    "USAGE\n",
-    "  useShinyCellModular(\n",
-    "    out_dir        = 'path/to/app/',\n",
-    "    data_type        = 'RNA',\n",
-    "    app_title        = 'My App'\n",
-    "  )\n",
-    "\n",
-    "  # To get more information about the function:\n",
-    "  #   useShinyCellModular(help = TRUE)\n"
-  )
-  
   if (missing(out_dir) && !isTRUE(help)) {
     help <- TRUE
   }

@@ -100,46 +100,7 @@ prepShinyCellModular <- function(
   ###########################################################################
   # Helper Functions
   ###########################################################################
-  helpMessage <- paste0(
-    "prepShinyCellModular()  -  Prepare a Seurat object for ShinyCellModular\n",
-    "\n",
-    "ARGUMENTS\n",
-    "  seurat_obj            Seurat object (alternative to seurat_rds)\n",
-    "  seurat_rds            Path to .rds Seurat object (alternative to seurat_obj)\n",
-    "  out_dir               Output directory. Default: 'Files_ShinyCell'\n",
-    "  shiny_title           Title for the Shiny app\n",
-    "  assays_selected       Assay(s) to process. e.g. c('RNA','ATAC')\n",
-    "  ident_col             Column to set as Idents. Default: NULL (uses existing)\n",
-    "  do_variable_features  Run FindVariableFeatures before createConfig. Default: TRUE\n",
-    "  do_markers            Compute marker genes with presto. Default: FALSE\n",
-    "  markers_file          Path for output markers parquet. Default: auto\n",
-    "  markers_overwrite     Overwrite existing markers file. Default: FALSE\n",
-    "  markers_res_pattern   Regex pattern to find resolution columns. Default: 'res\\\\.'\n",
-    "  do_umap3d             Run 3D UMAP. Default: FALSE\n",
-    "  umap3d_reductions     Reductions to use as input for 3D UMAP. Default: c('pca')\n",
-    "  umap3d_dims           Dims to use (auto-capped to available). Default: 1:30\n",
-    "  umap3d_name_suffix    Suffix for 3D UMAP reduction name. Default: '_umap3d'\n",
-    "  do_counts_h5          Write raw counts to HDF5. Default: TRUE\n",
-    "  counts_h5_file        Path for output H5 file. Default: auto\n",
-    "  counts_overwrite      Overwrite existing H5 file. Default: TRUE\n",
-    "  counts_layer          Seurat layer to use for counts. Default: 'counts'\n",
-    "  do_make_app           Run makeShinyApp. Default: TRUE\n",
-    "  gene_mapping          Map gene names in ShinyCell. Default: TRUE\n",
-    "  custom_colors         Named character vector of label -> hex color to override\n",
-    "                        ShinyCell default colors. Extra names not in data are ignored\n",
-    "  install_missing       Auto-install missing packages. Default: FALSE\n",
-    "  verbose               Print progress messages. Default: TRUE\n",
-    "  do_motifs             Extract motifs from ATAC assay. Default: 'auto'\n",
-    "  motifs_findmotifs     Output of FindMotifs() to add enrichment scores. Default: NULL\n",
-    "  motifs_overwrite      Overwrite existing motif files. Default: TRUE\n",
-    "  fragments_paths       Named list of fragment file path overrides by index.\n",
-    "                        e.g. list('1' = '/path/to/sample1.tsv.gz'). Default: NULL\n",
-    "custom_colors           Named character vector of label -> hex color to override ShinyCell default colors.", 
-    "                        Extra names not in the data are ignored. Default: DEfault: NULL.",
-    "default_genes           Vector of default genes",
-    "  help                  Print this help message. Default: FALSE\n"
-  )
-  
+
   .msg <- function(...) if (isTRUE(verbose)) message(...)
   .need_pkg <- function(pkg) {
     if (!requireNamespace(pkg, quietly = TRUE)) stop("Missing package: ", pkg, call. = FALSE)
@@ -490,13 +451,12 @@ prepShinyCellModular <- function(
   # Load Seurat Object
   ###########################################################################
   
-  if (is.null(seurat_obj) && is.null(seurat_rds) && !isTRUE(help)) {
-    help <- TRUE
-  }
-  if (isTRUE(help)) {
-    message(helpMessage)
+
+  if (isTRUE(help) || (is.null(seurat_obj) && is.null(seurat_rds))) {
+    tools::Rd2txt(tools::Rd_db("ShinyCellModular")[["prepShinyCellModular.Rd"]])
     return(invisible(NULL))
   }
+  
   
   if (!is.null(seurat_obj) && is.character(seurat_obj)) {
     warning("seurat_obj is a character path  -  did you mean to use seurat_rds instead? Passing a file path to seurat_obj will fail since it is not read from disk.", call. = FALSE)
