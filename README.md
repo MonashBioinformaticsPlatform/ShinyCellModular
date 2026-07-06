@@ -3,11 +3,9 @@
 </p>
 
 
-
-| Explore an Example |Learn More | Create |
-| :---:|  :----: | :----: |
-| [![](man/figures/launchapp_blue.svg)]("https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example") | [![](man/figures/documentation.svg)](https://monashbioinformaticsplatform.github.io/ShinyCellModular/) | [![](man/figures/dev_guide.svg)](vignettes/developer_guide.md) |
-
+| Explore an Example | Learn More | Create |
+| :---: | :---: | :---: |
+| <a href="https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example"><img src="man/figures/launchapp_blue.svg" width="250" height="120"/></a> | <a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/"><img src="man/figures/documentation.svg" width="250" height="120"/></a> | <a href="vignettes/developer_guide.md"><img src="man/figures/dev_guide.svg" width="250" height="120"/></a> |
 
 ***
 ## Motivation
