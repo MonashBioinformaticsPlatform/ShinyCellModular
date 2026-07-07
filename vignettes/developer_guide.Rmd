@@ -1,3 +1,13 @@
+---
+title: "ShinyCellModular: Developer Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{hinyCellModular: Developer Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
 # ShinyCellModular: Developer Guide
 
 This guide is for anyone extending ShinyCellModular: adding a tab, modifying an
