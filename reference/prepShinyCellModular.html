@@ -20,7 +20,7 @@ out_dir."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/ma
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">ShinyCellModular</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.41</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.59</span>
       </span>
     </div>
 
@@ -109,14 +109,15 @@ ShinyCell config files, optional 3D UMAP, marker genes, and motif data to
 <span>  counts_layer <span class="op">=</span> <span class="st">"counts"</span>,</span>
 <span>  do_make_app <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  gene_mapping <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  install_missing <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  do_motifs <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  motifs_findmotifs <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  motifs_overwrite <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  fragments_paths <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  atac_tile_binsize <span class="op">=</span> <span class="fl">500</span>,</span>
 <span>  custom_colors <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  default_genes <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  install_missing <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  help <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -134,7 +135,7 @@ ShinyCell config files, optional 3D UMAP, marker genes, and motif data to
 
 
 <dt id="arg-out-dir">out_dir<a class="anchor" aria-label="anchor" href="#arg-out-dir"></a></dt>
-<dd><p>Output directory. Default: <code>'Files_ShinyCell'</code>.</p></dd>
+<dd><p>Output directory. Default: <code>'Files_ShinyCellModular'</code>.</p></dd>
 
 
 <dt id="arg-shiny-title">shiny_title<a class="anchor" aria-label="anchor" href="#arg-shiny-title"></a></dt>
@@ -209,14 +210,6 @@ ShinyCell config files, optional 3D UMAP, marker genes, and motif data to
 <dd><p>Map gene names in ShinyCell. Default: <code>TRUE</code>.</p></dd>
 
 
-<dt id="arg-install-missing">install_missing<a class="anchor" aria-label="anchor" href="#arg-install-missing"></a></dt>
-<dd><p>Auto-install missing packages. Default: <code>FALSE</code>.</p></dd>
-
-
-<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
-<dd><p>Print progress messages. Default: <code>TRUE</code>.</p></dd>
-
-
 <dt id="arg-do-motifs">do_motifs<a class="anchor" aria-label="anchor" href="#arg-do-motifs"></a></dt>
 <dd><p>Extract motifs from ATAC assay. Runs automatically when ATAC is in
 <code>assays_selected</code> and the motifs slot is populated. Set to <code>FALSE</code> to skip.
@@ -237,6 +230,12 @@ e.g. <code>list('1' = '/path/to/sample1.tsv.gz')</code>. If <code>NULL</code>, p
 from the original paths in the object. Default: <code>NULL</code>.</p></dd>
 
 
+<dt id="arg-atac-tile-binsize">atac_tile_binsize<a class="anchor" aria-label="anchor" href="#arg-atac-tile-binsize"></a></dt>
+<dd><p>Bin width in bp for the precomputed genome-wide insertion
+count matrix used by the Coverage Plot tab. Smaller bins are more precise but
+make prep slower and the saved matrix bigger. Default: <code>500</code>.</p></dd>
+
+
 <dt id="arg-custom-colors">custom_colors<a class="anchor" aria-label="anchor" href="#arg-custom-colors"></a></dt>
 <dd><p>Named character vector of label -&gt; hex color to override ShinyCell
 default colors. Extra names not in the data are ignored. Default: <code>NULL</code>.</p></dd>
@@ -248,6 +247,14 @@ default colors. Extra names not in the data are ignored. Default: <code>NULL</co
 Default: <code>NULL</code>.</p></dd>
 
 
+<dt id="arg-install-missing">install_missing<a class="anchor" aria-label="anchor" href="#arg-install-missing"></a></dt>
+<dd><p>Auto-install missing packages. Default: <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
+<dd><p>Print progress messages. Default: <code>TRUE</code>.</p></dd>
+
+
 <dt id="arg-help">help<a class="anchor" aria-label="anchor" href="#arg-help"></a></dt>
 <dd><p>Print the help message and return. Default: <code>FALSE</code>.</p></dd>
 
@@ -255,7 +262,70 @@ Default: <code>NULL</code>.</p></dd>
     <div id="value">
     <h2>Value</h2>
     <p>Invisibly returns <code>NULL</code>. Writes output files to <code>out_dir</code>.</p>
-    </div>
+<p>#' @section Step by step:</p><ol><li><p><strong>Dependency check.</strong> Builds a list of required CRAN, Bioconductor,
+and GitHub-only packages (<code>ShinyCell</code>, <code>ggseqlogo</code>, <code>FlexDotPlot</code>,
+and <code>presto</code> if <code>do_markers = TRUE</code>; <code>Signac</code> is added automatically
+if <code>"ATAC"</code> is in <code>assays_selected</code>). Missing packages stop execution
+with an install hint unless <code>install_missing = TRUE</code>, in which case they are
+installed automatically.</p></li>
+<li><p><strong>Load the Seurat object.</strong> Exactly one of <code>seurat_obj</code> /
+<code>seurat_rds</code> must resolve to a Seurat object. If both are <code>NULL</code> (and
+<code>help</code> wasn't explicitly set), <code>help</code> is forced to <code>TRUE</code> and the
+function prints its help message and returns. Passing a file path to
+<code>seurat_obj</code> or an in-memory object to <code>seurat_rds</code> triggers a
+<code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code> pointing at the likely mistake.</p></li>
+<li><p><strong>Validate <code>assays_selected</code>.</strong> Checks every entry exists in
+<code>Seurat::Assays(seurat_obj)</code>; stops with the requested vs. available assay
+names otherwise.</p></li>
+<li><p><strong>Ensure assay keys exist.</strong> For any assay with a missing or empty
+<code>Key()</code>, sets one automatically (<code>tolower(assay) + "_"</code>) so downstream
+Seurat/Signac calls don't fail.</p></li>
+<li><p><strong>Main loop over <code>assays_selected</code>.</strong> For each <code>active_assay</code>
+(<code>DefaultAssay(seurat_obj) &lt;- active_assay</code>):</p><ul><li><p><em>RNA branch</em> (<code>active_assay == "RNA"</code>): creates
+<code>out_dir/RNA/</code>, optionally sets <code>Idents()</code> from <code>ident_col</code>,
+optionally adds 3D UMAP reductions (<code>do_umap3d</code>, skipping any reduction
+not present with a message), and optionally computes markers per resolution
+column matched by <code>markers_res_pattern</code> using <code><a href="https://rdrr.io/pkg/presto/man/wilcoxauc.html" class="external-link">presto::wilcoxauc</a></code>
+(skipping resolutions with fewer than 2 groups), writing the combined table
+to <code>markers_file</code> via <code><a href="https://arrow.apache.org/docs/r/reference/write_parquet.html" class="external-link">arrow::write_parquet()</a></code>.</p></li>
+<li><p><em>ATAC branch</em> (<code>active_assay == "ATAC"</code>): creates
+<code>out_dir/ATAC/</code>, resolves whether to run motif extraction from
+<code>do_motifs</code> (<code>"auto"</code> checks the <code>@motifs</code> slot; otherwise
+<code>isTRUE(do_motifs)</code>), extracting PWMs and names into
+<code>sc1motifs.rds</code> and <code>sc1motifs_meta.parquet</code> if so, optionally
+joined with <code>motifs_findmotifs</code> enrichment scores. Always extracts
+static ATAC objects (<code>sc1annotation.rds</code>, <code>sc1peaks.rds</code>,
+<code>sc1links.rds</code>, each skipped individually with a message if the slot is
+empty), and copies fragment files into
+<code>out_dir/ATAC/fragments/index&lt;N&gt;/</code>, using <code>fragments_paths</code>
+overrides for any file missing from the object's original path. Writes
+<code>sc1fragmentpaths.rds</code>.</p></li>
+<li><p><em>All assays</em>: if <code>do_make_app = TRUE</code>, optionally runs
+<code>FindVariableFeatures()</code>, then <code><a href="https://rdrr.io/pkg/ShinyCell/man/createConfig.html" class="external-link">ShinyCell::createConfig()</a></code> and
+<code><a href="https://rdrr.io/pkg/ShinyCell/man/makeShinyApp.html" class="external-link">ShinyCell::makeShinyApp()</a></code> into <code>out_dir/&lt;assay&gt;/</code>. If
+<code>custom_colors</code> is supplied, patches matching factor-level colours into
+the <code>sc1conf.rds</code> that <code>makeShinyApp()</code> just wrote (since
+<code>makeShinyApp()</code> ignores any pre-patched config passed in). If
+<code>do_counts_h5 = TRUE</code>, writes the sparse counts matrix (CSC format:
+<code>i</code>, <code>p</code>, <code>x</code>, <code>dims</code>, <code>genes</code>, <code>cells</code>) to
+<code>out_dir/&lt;assay&gt;/sc1counts.h5</code> via <code>hdf5r</code>.</p></li>
+</ul></li>
+</ol></div>
+    <div id="notes">
+    <h2>Notes</h2>
+
+
+<ul><li><p><code>custom_colors</code> passed via <code>source("colors.R")</code> returns a list, not
+a named vector. The function detects this, extracts <code>$value</code> automatically,
+and warns you to pass <code>custom_colors = source("colors.R")$value</code> directly
+next time.</p></li>
+<li><p>Fragment files that can't be found anywhere (neither the original path nor a
+<code>fragments_paths</code> override) are reported with a ready-to-paste
+<code>fragments_paths = list(...)</code> snippet in the message.</p></li>
+<li><p><code>install_missing = TRUE</code> also runs <code>setRepositories(ind = 1:3)</code>
+before <code><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages()</a></code> so Bioconductor dependencies (e.g. for
+<code>Signac</code>) resolve correctly.</p></li>
+</ul></div>
 
     <div id="ref-examples">
     <h2>Examples</h2>
