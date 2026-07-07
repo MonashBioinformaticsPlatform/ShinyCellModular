@@ -18,7 +18,7 @@ ready-to-run app.R with the selected module tabs into out_dir."><!-- mathjax -->
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">ShinyCellModular</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.40</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.59</span>
       </span>
     </div>
 
@@ -92,7 +92,7 @@ ready-to-run <code>app.R</code> with the selected module tabs into <code>out_dir
 <span>  overwrite_modules <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  disable_ui_server <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  app_title <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  navbar_color <span class="op">=</span> <span class="st">"#007BA7"</span></span>
+<span>  navbar_color <span class="op">=</span> <span class="st">"#00BDC9"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -115,8 +115,7 @@ containing <code>modules/</code>. Default: <code>system.file('', package = 'Shin
 
 
 <dt id="arg-data-type">data_type<a class="anchor" aria-label="anchor" href="#arg-data-type"></a></dt>
-<dd><p>Preset tab selection: <code>'RNA'</code>, <code>'RNA_ATAC'</code>, or <code>'SPATIAL'</code>.
-Default: <code>'RNA'</code>.</p></dd>
+<dd><p>Preset tab selection: one or more of <code>ATAC</code>, <code>MULTI</code>, <code>RNA</code>. Matched against the folders actually present on disk under <code>modules/</code>.</p></dd>
 
 
 <dt id="arg-enabled-tabs">enabled_tabs<a class="anchor" aria-label="anchor" href="#arg-enabled-tabs"></a></dt>
@@ -135,11 +134,88 @@ presets. Default: <code>NULL</code> (uses all tabs for <code>data_type</code>).<
 <dt id="arg-app-title">app_title<a class="anchor" aria-label="anchor" href="#arg-app-title"></a></dt>
 <dd><p>Title shown in the app navbar. Required.</p></dd>
 
+
+<dt id="arg-navbar-color">navbar_color<a class="anchor" aria-label="anchor" href="#arg-navbar-color"></a></dt>
+<dd><p>Navbar background colour (hex), also used for buttons/hover
+states in the generated <code>app.R</code>. Default: <code>"#007BA7"</code>.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>Invisibly returns <code>NULL</code>. Writes <code>app.R</code> and <code>modules/</code> to <code>out_dir</code>.</p>
     </div>
+    <div id="step-by-step">
+    <h2>Step by step</h2>
+
+
+<ol><li><p><strong>Help / required arguments.</strong> If <code>out_dir</code> is missing (and
+<code>help</code> wasn't set), help is forced on and the help message is printed.
+<code>app_title</code> is mandatory, missing or <code>NULL</code> stops with an explicit
+error.</p></li>
+<li><p><strong>Resolve and validate paths.</strong> If <code>shinycellmodular.dir.src</code>
+isn't supplied, tries <code>find.package("ShinyCellModular")</code> and checks it has
+a <code>modules/</code> folder, stopping with instructions if it can't be found. Both
+<code>out_dir</code> and <code>shinycellmodular.dir.src</code> are normalised with
+<code>normalizePath(mustWork = TRUE)</code>, so nonexistent paths fail fast with a
+clear error.</p></li>
+<li><p><strong>Determine which tabs will be included.</strong> The tab catalogue is built
+dynamically by scanning every file under
+<code>shinycellmodular.dir.src/modules/</code>, grouped by its immediate subfolder, so
+the available <code>data_type</code> values and tab IDs always reflect what's
+actually on disk, nothing is hard-coded. Selection rules:</p><ul><li><p>Neither <code>data_type</code> nor <code>enabled_tabs</code> supplied: stops with an
+error asking for one of them.</p></li>
+<li><p>Only <code>data_type</code> supplied: all tabs found under that subfolder(s)
+are included (<code>data_type</code> supports multiple values via
+<code>several.ok = TRUE</code>).</p></li>
+<li><p>Only <code>enabled_tabs</code> supplied: every subfolder is searched for
+matching tab IDs, any tab not found anywhere triggers a <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code>
+listing the missing ones and is dropped.</p></li>
+<li><p>Both supplied: <code>enabled_tabs</code> is intersected with the tabs valid
+for <code>data_type</code>, any tab outside that set stops execution with the list
+of valid tabs for that <code>data_type</code>.</p></li>
+</ul></li>
+<li><p><strong>Optionally disable legacy <code>ui.R</code> / <code>server.R</code>.</strong> If
+<code>disable_ui_server = TRUE</code> and either file exists in <code>out_dir</code>, both
+are renamed to <code>.bak</code> (with a message explaining why), ensuring Shiny loads
+the generated <code>app.R</code>.</p></li>
+<li><p><strong>Copy/refresh modules and write <code>app.R</code>.</strong> Copies the module
+files for <code>enabled_tabs</code> into <code>out_dir/modules/</code> (replacing the folder
+first if <code>overwrite_modules = TRUE</code>), then builds <code>app.R</code> from an
+internal template string. The template:</p><ul><li><p>Sources every <code>.R</code> file in <code>modules/</code>, calling
+<code>register_tab()</code> per module and collecting a <code>tab_registry</code>.</p></li>
+<li><p>Warns if no modules registered any tabs, or if a requested tab wasn't
+found in the registry.</p></li>
+<li><p>Builds one <code>tabPanel</code> per enabled tab, appending a footer with the
+module's <code>author</code> / <code>description</code> / <code>version</code> / <code>date</code> /
+<code>source</code> / <code>contact</code> metadata.</p></li>
+<li><p>Wires up <code>server()</code> by passing through only the arguments each
+module's server function actually declares (matched against
+<code><a href="https://rdrr.io/r/base/formals.html" class="external-link">formals()</a></code>), so modules only need to list the globals they use.</p></li>
+<li><p>Substitutes placeholders (<code>__APP_TITLE__</code>, <code>__DIR_INPUTS__</code>,
+<code>__ASSAYS__</code>, <code>__ENABLED_TABS__</code>, <code>__NAVBAR_COLOR__</code>,
+<code>__SCM_VERSION__</code>) with <code>gsub(..., fixed = TRUE)</code> and writes the
+result to <code>out_dir/app.R</code>.</p></li>
+</ul></li>
+<li><p><strong>Optional rsconnect manifest.</strong> If <code>rsconnect.deploy = TRUE</code>:
+runs <code>rsconnect::writeManifest(appDir = out_dir)</code>, then reads
+<code>manifest.json</code> back in, re-keys every <code>.rds</code> / <code>.h5</code> /
+<code>.parquet</code> entry to be prefixed with <code>out_dir</code> (so paths resolve
+correctly for the deployed app), and rewrites the manifest.</p></li>
+</ol></div>
+    <div id="notes">
+    <h2>Notes</h2>
+
+
+<ul><li><p><code>data_type</code> and <code>enabled_tabs</code> are validated against real
+folders/files, so a typo in either produces an explicit list of what's actually
+available rather than a silent no-op.</p></li>
+<li><p>The generated <code>app.R</code> is self-contained, it does not call back into
+<code>useShinyCellModular()</code> at runtime, so <code>shinycellmodular.dir.src</code> is
+only needed at generation time.</p></li>
+<li><p>Because server arguments are matched via <code><a href="https://rdrr.io/r/base/formals.html" class="external-link">formals()</a></code>, adding new global
+objects to the template's <code>args_to_pass</code> list is safe for existing modules,
+modules that don't declare the new argument simply won't receive it.</p></li>
+</ul></div>
 
     <div id="ref-examples">
     <h2>Examples</h2>

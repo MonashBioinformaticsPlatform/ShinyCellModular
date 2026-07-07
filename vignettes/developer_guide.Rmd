@@ -2,7 +2,7 @@
 title: "ShinyCellModular: Developer Guide"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{hinyCellModular: Developer Guide}
+  %\VignetteIndexEntry{ShinyCellModular: Developer Guide}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

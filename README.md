@@ -5,7 +5,7 @@
 
 | Explore an Example | Learn More | Create |
 | :---: | :---: | :---: |
-| <a href="https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example"><img src="man/figures/launchapp_blue.svg" width="250" height="120"/></a> | <a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/"><img src="man/figures/documentation.svg" width="250" height="120"/></a> | <a href="vignettes/developer_guide.md"><img src="man/figures/dev_guide.svg" width="250" height="120"/></a> |
+| <a href="https://bioinformatics.erc.monash.edu/shinyapps-public/app/scrnaseq-shinycellmodular-example"><img src="man/figures/launchapp_blue.svg" width="250" height="120"/></a> | <a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/"><img src="man/figures/documentation.svg" width="250" height="120"/></a> | <a href="articles/developer_guide.html"><img src="man/figures/dev_guide.svg" width="250" height="120"/></a> |
 
 ***
 ## Motivation
@@ -14,7 +14,7 @@ Single-cell apps rarely stay static once a lab starts using them: labels get reo
 
 Most ShinyCell-derived apps are one large, cross-referenced script: tabs share state and call into each other, so touching one thing risks breaking another. ShinyCellModular restructures this as a plugin system: every tab is a self-contained R file (UI + server + `register_tab()`), discovered automatically at build time from a directory listing, with no hard-coded catalogue to edit. Add a tab by dropping in a file; remove one without touching anything else; hand a tab to a team member without them needing to understand the rest of the app.
 
-That architecture is what lets us keep customising ShinyCellModular for our own researchers over time, rather than accumulating one-off patches that get harder to maintain with every request. We build most tabs ourselves, driven by real project needs, but the module structure is deliberately open: see [creating your own modules/tabs](vignettes/developer_guide.Rmd) if you want to build on it or adapt it for your own group.
+That architecture is what lets us keep customising ShinyCellModular for our own researchers over time, rather than accumulating one-off patches that get harder to maintain with every request. We build most tabs ourselves, driven by real project needs, but the module structure is deliberately open: see [creating your own modules/tabs](articles/developer_guide.html) if you want to build on it or adapt it for your own group.
 
 ## What it does? 
 
