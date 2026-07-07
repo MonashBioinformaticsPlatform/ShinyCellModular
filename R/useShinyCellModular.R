@@ -9,6 +9,21 @@ if (FALSE) {
   library(jsonlite)
   library(rsconnect)
 }
+# not exported, only used by roxygen at document() time to build the
+# data_type param doc from whatever folders actually exist under modules/
+#' @noRd
+scm_data_type_doc <- function() {
+  root <- system.file("modules", package = "ShinyCellModular")
+  if (root == "" || !dir.exists(root)) {
+    return("@param data_type Preset tab selection. One or more subfolder names under `modules/`.")
+  }
+  types <- list.dirs(root, full.names = FALSE, recursive = FALSE)
+  paste0(
+    "@param data_type Preset tab selection: one or more of ",
+    paste0("`", types, "`", collapse = ", "),
+    ". Matched against the folders actually present on disk under `modules/`."
+  )
+}
 
 #' Generate a modular ShinyCellModular Shiny app
 #'
@@ -20,15 +35,90 @@ if (FALSE) {
 #' @param shinycellmodular.dir.src Path to the ShinyCellModular source directory
 #'   containing \code{modules/}. Default: \code{system.file('', package = 'ShinyCellModular')}.
 #' @param rsconnect.deploy Write an rsconnect manifest for deployment. Default: \code{FALSE}.
-#' @param data_type Preset tab selection: \code{'RNA'}, \code{'RNA_ATAC'}, or \code{'SPATIAL'}.
-#'   Default: \code{'RNA'}.
+#' @eval scm_data_type_doc()
 #' @param enabled_tabs Character vector of tab IDs to include. Overrides \code{data_type}
 #'   presets. Default: \code{NULL} (uses all tabs for \code{data_type}).
 #' @param overwrite_modules Remove and replace existing \code{modules/} folder. Default: \code{FALSE}.
 #' @param disable_ui_server Rename legacy \code{ui.R} and \code{server.R} to \code{.bak}. Default: \code{TRUE}.
 #' @param app_title Title shown in the app navbar. Required.
+#' @param navbar_color Navbar background colour (hex), also used for buttons/hover
+#'   states in the generated \code{app.R}. Default: \code{"#007BA7"}.
 #'
 #' @return Invisibly returns \code{NULL}. Writes \code{app.R} and \code{modules/} to \code{out_dir}.
+#'
+#' @section Step by step:
+#' \enumerate{
+#'   \item \strong{Help / required arguments.} If \code{out_dir} is missing (and
+#'     \code{help} wasn't set), help is forced on and the help message is printed.
+#'     \code{app_title} is mandatory, missing or \code{NULL} stops with an explicit
+#'     error.
+#'   \item \strong{Resolve and validate paths.} If \code{shinycellmodular.dir.src}
+#'     isn't supplied, tries \code{find.package("ShinyCellModular")} and checks it has
+#'     a \code{modules/} folder, stopping with instructions if it can't be found. Both
+#'     \code{out_dir} and \code{shinycellmodular.dir.src} are normalised with
+#'     \code{normalizePath(mustWork = TRUE)}, so nonexistent paths fail fast with a
+#'     clear error.
+#'   \item \strong{Determine which tabs will be included.} The tab catalogue is built
+#'     dynamically by scanning every file under
+#'     \code{shinycellmodular.dir.src/modules/}, grouped by its immediate subfolder, so
+#'     the available \code{data_type} values and tab IDs always reflect what's
+#'     actually on disk, nothing is hard-coded. Selection rules:
+#'     \itemize{
+#'       \item Neither \code{data_type} nor \code{enabled_tabs} supplied: stops with an
+#'         error asking for one of them.
+#'       \item Only \code{data_type} supplied: all tabs found under that subfolder(s)
+#'         are included (\code{data_type} supports multiple values via
+#'         \code{several.ok = TRUE}).
+#'       \item Only \code{enabled_tabs} supplied: every subfolder is searched for
+#'         matching tab IDs, any tab not found anywhere triggers a \code{warning()}
+#'         listing the missing ones and is dropped.
+#'       \item Both supplied: \code{enabled_tabs} is intersected with the tabs valid
+#'         for \code{data_type}, any tab outside that set stops execution with the list
+#'         of valid tabs for that \code{data_type}.
+#'     }
+#'   \item \strong{Optionally disable legacy \code{ui.R} / \code{server.R}.} If
+#'     \code{disable_ui_server = TRUE} and either file exists in \code{out_dir}, both
+#'     are renamed to \code{.bak} (with a message explaining why), ensuring Shiny loads
+#'     the generated \code{app.R}.
+#'   \item \strong{Copy/refresh modules and write \code{app.R}.} Copies the module
+#'     files for \code{enabled_tabs} into \code{out_dir/modules/} (replacing the folder
+#'     first if \code{overwrite_modules = TRUE}), then builds \code{app.R} from an
+#'     internal template string. The template:
+#'     \itemize{
+#'       \item Sources every \code{.R} file in \code{modules/}, calling
+#'         \code{register_tab()} per module and collecting a \code{tab_registry}.
+#'       \item Warns if no modules registered any tabs, or if a requested tab wasn't
+#'         found in the registry.
+#'       \item Builds one \code{tabPanel} per enabled tab, appending a footer with the
+#'         module's \code{author} / \code{description} / \code{version} / \code{date} /
+#'         \code{source} / \code{contact} metadata.
+#'       \item Wires up \code{server()} by passing through only the arguments each
+#'         module's server function actually declares (matched against
+#'         \code{formals()}), so modules only need to list the globals they use.
+#'       \item Substitutes placeholders (\code{__APP_TITLE__}, \code{__DIR_INPUTS__},
+#'         \code{__ASSAYS__}, \code{__ENABLED_TABS__}, \code{__NAVBAR_COLOR__},
+#'         \code{__SCM_VERSION__}) with \code{gsub(..., fixed = TRUE)} and writes the
+#'         result to \code{out_dir/app.R}.
+#'     }
+#'   \item \strong{Optional rsconnect manifest.} If \code{rsconnect.deploy = TRUE}:
+#'     runs \code{rsconnect::writeManifest(appDir = out_dir)}, then reads
+#'     \code{manifest.json} back in, re-keys every \code{.rds} / \code{.h5} /
+#'     \code{.parquet} entry to be prefixed with \code{out_dir} (so paths resolve
+#'     correctly for the deployed app), and rewrites the manifest.
+#' }
+#'
+#' @section Notes:
+#' \itemize{
+#'   \item \code{data_type} and \code{enabled_tabs} are validated against real
+#'     folders/files, so a typo in either produces an explicit list of what's actually
+#'     available rather than a silent no-op.
+#'   \item The generated \code{app.R} is self-contained, it does not call back into
+#'     \code{useShinyCellModular()} at runtime, so \code{shinycellmodular.dir.src} is
+#'     only needed at generation time.
+#'   \item Because server arguments are matched via \code{formals()}, adding new global
+#'     objects to the template's \code{args_to_pass} list is safe for existing modules,
+#'     modules that don't declare the new argument simply won't receive it.
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -49,7 +139,7 @@ useShinyCellModular <- function(
     overwrite_modules = FALSE, # overwrite modules
     disable_ui_server = TRUE, # this disables the existing ui.R and server.r
     app_title=NULL,
-    navbar_color = "#007BA7" # navbar background colour
+    navbar_color = "#00BDC9" # navbar background colour
     
 ) {
   
@@ -61,7 +151,7 @@ useShinyCellModular <- function(
     help <- TRUE
   }
   if (isTRUE(help)) {
-    message(helpMessage)
+    tools::Rd2txt(tools::Rd_db("ShinyCellModular")[["useShinyCellModular.Rd"]])
     return(invisible(NULL))
   }
   
@@ -354,6 +444,9 @@ if (file.exists(file.path(dir_inputs,"ATAC"))) {
   sc1annotation    <- tryCatch({readRDS(file.path(atac_dir, "sc1annotation.rds"))},error = function(e){return(NULL)})
   sc1peaks         <- tryCatch({readRDS(file.path(atac_dir, "sc1peaks.rds"))},error = function(e){return(NULL)})
   sc1links         <- tryCatch({readRDS(file.path(atac_dir, "sc1links.rds"))},error = function(e) {return(NULL)})
+  sc1atactiles     <- tryCatch({ d <- file.path(atac_dir, "tiles")
+                         if (dir.exists(d)) d else NULL
+                       }, error = function(e) {return(NULL)})
 }else { sc1conf_atac     <- NULL
           sc1def_atac      <- NULL
           sc1gene_atac     <- NULL
@@ -362,6 +455,7 @@ if (file.exists(file.path(dir_inputs,"ATAC"))) {
           sc1annotation    <- NULL
           sc1peaks         <- NULL
           sc1links         <- NULL
+          sc1atactiles     <- NULL
         }
 
 
@@ -518,7 +612,8 @@ tab_panels <- lapply(tab_ids, function(k) {
  ui <- fluidPage( 
       tags$head(
         tags$style(HTML(".shiny-output-error-validation {color: red; font-weight: bold;}")),
-        tags$style(HTML(".navbar-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;} .navbar{min-height:36px;} .navbar-default .navbar-nav>li>a{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;} .navbar-default .navbar-brand{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;border-right:1px solid rgba(255,255,255,0.3);margin-right:4px;} .navbar-collapse{padding-top:0;padding-bottom:0;} .btn-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;} .btn-default:hover,.btn-default:focus,.btn-default:active{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;filter:brightness(0.92);}"))
+        tags$style(HTML(".navbar-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;} .navbar{min-height:36px;font-family:Helvetica,Arial,sans-serif;} .navbar-default .navbar-nav>li>a{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;letter-spacing:0.3px;border-radius:4px;transition:background-color 0.15s ease;} .navbar-default .navbar-nav>li>a:hover{background-color:rgba(255,255,255,0.15);} .navbar-default .navbar-brand{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;letter-spacing:0.3px;border-right:1px solid rgba(255,255,255,0.3);margin-right:4px;} .navbar-collapse{padding-top:0;padding-bottom:0;} .btn-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;border-radius:6px;font-weight:bold;transition:filter 0.15s ease;} .btn-default:hover,.btn-default:focus,.btn-default:active{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;filter:brightness(0.92);}"))
+
     ),
       do.call(navbarPage, c(list(title = app_title), tab_panels)),
       tags$hr(),
@@ -567,6 +662,7 @@ server <- function(input, output, session) {
       sc1annotation    = sc1annotation,
       sc1peaks         = sc1peaks,
       sc1links         = sc1links,
+      sc1atactiles     = sc1atactiles,
       markers_list = markers_list,
       assays = assays,
       dir_inputs = dir_inputs

@@ -11,7 +11,7 @@ NULL
 #'
 #' @param seurat_obj Seurat object. Alternative to \code{seurat_rds}.
 #' @param seurat_rds Path to a \code{.rds} Seurat object. Alternative to \code{seurat_obj}.
-#' @param out_dir Output directory. Default: \code{'Files_ShinyCell'}.
+#' @param out_dir Output directory. Default: \code{'Files_ShinyCellModular'}.
 #' @param shiny_title Title for the Shiny app.
 #' @param assays_selected Assay(s) to process. e.g. \code{c('RNA', 'ATAC')}. Default: \code{'RNA'}.
 #' @param ident_col Column to set as Idents. Default: \code{NULL} (uses existing).
@@ -30,24 +30,98 @@ NULL
 #' @param counts_layer Seurat layer to use for counts. Default: \code{'counts'}.
 #' @param do_make_app Run \code{makeShinyApp}. Default: \code{TRUE}.
 #' @param gene_mapping Map gene names in ShinyCell. Default: \code{TRUE}.
-#' @param install_missing Auto-install missing packages. Default: \code{FALSE}.
-#' @param verbose Print progress messages. Default: \code{TRUE}.
+#' 
+#' @param fragments_paths Optional named list of fragment file path overrides by index.
+#'   e.g. \code{list('1' = '/path/to/sample1.tsv.gz')}. If \code{NULL}, paths are copied
+#'   from the original paths in the object. Default: \code{NULL}.
 #' @param do_motifs Extract motifs from ATAC assay. Runs automatically when ATAC is in
 #'   \code{assays_selected} and the motifs slot is populated. Set to \code{FALSE} to skip.
 #'   Default: \code{'auto'}.
 #' @param motifs_findmotifs Output of \code{FindMotifs()}, adds enrichment scores. Default: \code{NULL}.
 #' @param motifs_overwrite Overwrite existing motif files. Default: \code{TRUE}.
-#' @param fragments_paths Optional named list of fragment file path overrides by index.
-#'   e.g. \code{list('1' = '/path/to/sample1.tsv.gz')}. If \code{NULL}, paths are copied
-#'   from the original paths in the object. Default: \code{NULL}.
+#' @param atac_tile_binsize Bin width in bp for the precomputed genome-wide insertion
+#'   count matrix used by the Coverage Plot tab. Smaller bins are more precise but
+#'   make prep slower and the saved matrix bigger. Default: \code{500}.
+#'   
 #' @param custom_colors Named character vector of label -> hex color to override ShinyCell
 #'   default colors. Extra names not in the data are ignored. Default: \code{NULL}.
 #' @param default_genes Character vector of gene names to set as defaults in the app
 #'   (e.g. \code{c('CD4', 'CD8A')}). If \code{NULL}, ShinyCell picks its own defaults.
 #'   Default: \code{NULL}.
+#' @param install_missing Auto-install missing packages. Default: \code{FALSE}.
+#' @param verbose Print progress messages. Default: \code{TRUE}.
+#'   
 #' @param help Print the help message and return. Default: \code{FALSE}.
 #'
 #' @return Invisibly returns \code{NULL}. Writes output files to \code{out_dir}.
+#'
+#'#' @section Step by step:
+#' \enumerate{
+#'   \item \strong{Dependency check.} Builds a list of required CRAN, Bioconductor,
+#'     and GitHub-only packages (\code{ShinyCell}, \code{ggseqlogo}, \code{FlexDotPlot},
+#'     and \code{presto} if \code{do_markers = TRUE}; \code{Signac} is added automatically
+#'     if \code{"ATAC"} is in \code{assays_selected}). Missing packages stop execution
+#'     with an install hint unless \code{install_missing = TRUE}, in which case they are
+#'     installed automatically.
+#'   \item \strong{Load the Seurat object.} Exactly one of \code{seurat_obj} /
+#'     \code{seurat_rds} must resolve to a Seurat object. If both are \code{NULL} (and
+#'     \code{help} wasn't explicitly set), \code{help} is forced to \code{TRUE} and the
+#'     function prints its help message and returns. Passing a file path to
+#'     \code{seurat_obj} or an in-memory object to \code{seurat_rds} triggers a
+#'     \code{warning()} pointing at the likely mistake.
+#'   \item \strong{Validate \code{assays_selected}.} Checks every entry exists in
+#'     \code{Seurat::Assays(seurat_obj)}; stops with the requested vs. available assay
+#'     names otherwise.
+#'   \item \strong{Ensure assay keys exist.} For any assay with a missing or empty
+#'     \code{Key()}, sets one automatically (\code{tolower(assay) + "_"}) so downstream
+#'     Seurat/Signac calls don't fail.
+#'   \item \strong{Main loop over \code{assays_selected}.} For each \code{active_assay}
+#'     (\code{DefaultAssay(seurat_obj) <- active_assay}):
+#'     \itemize{
+#'       \item \emph{RNA branch} (\code{active_assay == "RNA"}): creates
+#'         \code{out_dir/RNA/}, optionally sets \code{Idents()} from \code{ident_col},
+#'         optionally adds 3D UMAP reductions (\code{do_umap3d}, skipping any reduction
+#'         not present with a message), and optionally computes markers per resolution
+#'         column matched by \code{markers_res_pattern} using \code{presto::wilcoxauc}
+#'         (skipping resolutions with fewer than 2 groups), writing the combined table
+#'         to \code{markers_file} via \code{arrow::write_parquet()}.
+#'       \item \emph{ATAC branch} (\code{active_assay == "ATAC"}): creates
+#'         \code{out_dir/ATAC/}, resolves whether to run motif extraction from
+#'         \code{do_motifs} (\code{"auto"} checks the \code{@@motifs} slot; otherwise
+#'         \code{isTRUE(do_motifs)}), extracting PWMs and names into
+#'         \code{sc1motifs.rds} and \code{sc1motifs_meta.parquet} if so, optionally
+#'         joined with \code{motifs_findmotifs} enrichment scores. Always extracts
+#'         static ATAC objects (\code{sc1annotation.rds}, \code{sc1peaks.rds},
+#'         \code{sc1links.rds}, each skipped individually with a message if the slot is
+#'         empty), and copies fragment files into
+#'         \code{out_dir/ATAC/fragments/index<N>/}, using \code{fragments_paths}
+#'         overrides for any file missing from the object's original path. Writes
+#'         \code{sc1fragmentpaths.rds}.
+#'       \item \emph{All assays}: if \code{do_make_app = TRUE}, optionally runs
+#'         \code{FindVariableFeatures()}, then \code{ShinyCell::createConfig()} and
+#'         \code{ShinyCell::makeShinyApp()} into \code{out_dir/<assay>/}. If
+#'         \code{custom_colors} is supplied, patches matching factor-level colours into
+#'         the \code{sc1conf.rds} that \code{makeShinyApp()} just wrote (since
+#'         \code{makeShinyApp()} ignores any pre-patched config passed in). If
+#'         \code{do_counts_h5 = TRUE}, writes the sparse counts matrix (CSC format:
+#'         \code{i}, \code{p}, \code{x}, \code{dims}, \code{genes}, \code{cells}) to
+#'         \code{out_dir/<assay>/sc1counts.h5} via \code{hdf5r}.
+#'     }
+#' }
+#'
+#' @section Notes:
+#' \itemize{
+#'   \item \code{custom_colors} passed via \code{source("colors.R")} returns a list, not
+#'     a named vector. The function detects this, extracts \code{$value} automatically,
+#'     and warns you to pass \code{custom_colors = source("colors.R")$value} directly
+#'     next time.
+#'   \item Fragment files that can't be found anywhere (neither the original path nor a
+#'     \code{fragments_paths} override) are reported with a ready-to-paste
+#'     \code{fragments_paths = list(...)} snippet in the message.
+#'   \item \code{install_missing = TRUE} also runs \code{setRepositories(ind = 1:3)}
+#'     before \code{install.packages()} so Bioconductor dependencies (e.g. for
+#'     \code{Signac}) resolve correctly.
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -82,8 +156,6 @@ prepShinyCellModular <- function(
     counts_layer = "counts",
     do_make_app = TRUE,
     gene_mapping = TRUE,
-    install_missing = FALSE,
-    verbose = TRUE,
     # motif extraction  -  runs automatically when ATAC is in assays_selected
     # and the motifs slot is populated; set to FALSE to skip
     do_motifs = "auto",
@@ -92,8 +164,11 @@ prepShinyCellModular <- function(
     fragments_paths = NULL,     # optional named list by index to override fragment file paths
     # e.g. list("1" = "/path/to/sample1.tsv.gz", "2" = "/path/to/sample2.tsv.gz")
     # if NULL, prepShinyCellModular will try to copy from the original paths in the object
+    atac_tile_binsize = 500,   # bin width in bp for the coverage plot tile matrix
     custom_colors = NULL, # add here custom colors
     default_genes=NULL,
+    install_missing = FALSE,
+    verbose = TRUE,
     help = FALSE
 ) {
   
@@ -361,6 +436,104 @@ prepShinyCellModular <- function(
     invisible(frag_info)
   }
   
+  # builds one binned Tn5 cut count table per chromosome (start, end, cell, count),
+  # reads each fragment file once here at prep time, so coverage_plot.R only has to
+  # open the one chromosome's parquet file for a region query instead of scanning
+  # the fragment file fresh on every click, same idea as ArchR's per-chromosome
+  # Arrow files, but stored as parquet like the rest of this project
+  .extract_atac_tilematrix <- function(atac_out_dir, frag_info, bin_size = 500) {
+    
+    .need_pkg("data.table")
+    .need_pkg("arrow")
+    
+    if (is.null(frag_info) || length(frag_info) == 0) {
+      .msg("No fragment info available  -  skipping tile matrix")
+      return(invisible(NULL))
+    }
+    
+    
+    #.msg("creating frag_dir") #debug
+    frag_dir <- file.path(atac_out_dir, "fragments")
+    
+    # pass 1: read every fragment file once, tag each row with the suffixed cell id
+    # used elsewhere in the app (same mapping sc_coverage() builds at runtime),
+    # fragments that were never actually copied are skipped
+    #.msg(" cuts_list") #debug
+    cuts_list <- lapply(frag_info, function(fi) {
+      if (!isTRUE(fi$copied)) return(NULL)
+      frag_path <- file.path(frag_dir, paste0("index", fi$index), "atac_fragments.tsv.gz")
+      if (!file.exists(frag_path)) return(NULL)
+      
+      dt <- data.table::fread(frag_path, header = FALSE,
+                              select = 1:4, col.names = c("chr", "start", "end", "barcode"))
+      #class(dt)
+      # fi$cells: names = suffixed id used in the app, values = original barcode in the file
+      orig_to_suffixed <- setNames(names(fi$cells), fi$cells)
+      dt$cell <- orig_to_suffixed[dt$barcode]
+      dt <- dt[!is.na(dt$cell), ]
+    
+      dt[, c("chr", "start", "end", "cell")]
+    })
+    
+    
+    #.msg(" cuts_all") #debug
+    
+    cuts_all <- data.table::rbindlist(Filter(Negate(is.null), cuts_list))
+    if (nrow(cuts_all) == 0) {
+      .msg("No usable fragment data found  -  skipping tile matrix")
+      return(invisible(NULL))
+    }
+    #.msg("  tiles_dir") #debug
+    tiles_dir <- file.path(atac_out_dir, "tiles")
+    dir.create(tiles_dir, recursive = TRUE, showWarnings = FALSE)
+    
+    # one parquet file per chromosome, only cover spans that actually have fragment
+    # data, so a region query at runtime only ever opens the one file it needs
+    chrs <- unique(cuts_all$chr)
+    .msg("  Processing ", length(chrs), "contigs/chromosomes")
+    ncontigs<-0
+    for (ch in chrs) {
+      
+      sub <- cuts_all[cuts_all$chr == ch,]
+      class(cuts_all)
+      lo  <- min(sub$start)
+      hi  <- max(sub$end)
+      bin_starts <- seq.int(lo, hi, by = bin_size)
+      
+      # each row contributes one Tn5 cut at start and one at end, same convention as
+      # sc_read_cuts()/sc_coverage() at runtime
+      cut_positions <- c(sub$start, sub$end)
+      cut_cells     <- c(sub$cell, sub$cell)
+      
+      bin_i <- findInterval(cut_positions, bin_starts)
+      keep  <- bin_i >= 1 & bin_i <= length(bin_starts)
+      
+      hits <- data.table::data.table(
+        start = bin_starts[bin_i[keep]],
+        cell  = cut_cells[keep]
+      )
+      
+      key   <- paste(hits$start, hits$cell, sep = "\r")
+      sums  <- rowsum(rep(1L, length(key)), group = key, reorder = TRUE)
+      parts <- strsplit(rownames(sums), "\r", fixed = TRUE)
+      counts <- data.frame(
+        start = as.integer(vapply(parts, `[`, character(1), 1L)),
+        cell  = vapply(parts, `[`, character(1), 2L),
+        count = as.integer(sums[, 1]),
+        stringsAsFactors = FALSE
+      )
+      counts$end <- pmin(counts$start + bin_size - 1L, hi)
+      counts <- counts[, c("start", "end", "cell", "count")]
+      
+      arrow::write_parquet(counts, file.path(tiles_dir, paste0(ch, ".parquet")))
+      ncontigs<- ncontigs +1
+      .msg("  Saved tile counts for ", ch, " to tiles/", ch, ".parquet (", nrow(counts), " bin x cell entries).   Done", ncontigs, "of",  lenght(chrs))
+    }
+    
+    .msg("Saved binned insertion counts as parquet (", length(chrs), " chromosomes, bin size ", bin_size, "bp)")
+    invisible(NULL)
+  }
+  
   ###########################################################################
   # File path defaults
   ###########################################################################
@@ -617,7 +790,11 @@ prepShinyCellModular <- function(
       }
       
       .msg("Extracting static ATAC objects (annotation, peaks, links, fragments)")
-      .extract_atac_static(seurat_obj, active_assay, atac_out_dir, fragments_paths)
+      #.extract_atac_static(seurat_obj, active_assay, atac_out_dir, fragments_paths)
+      frag_info <- .extract_atac_static(seurat_obj, active_assay, atac_out_dir, fragments_paths)
+      
+      .msg("Building binned insertion matrix for fast coverage plotting")
+      .extract_atac_tilematrix(atac_out_dir, frag_info, bin_size = atac_tile_binsize)
     }
     
     ###########################################################################

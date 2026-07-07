@@ -13,7 +13,7 @@ useShinyCellModular(
   overwrite_modules = FALSE,
   disable_ui_server = TRUE,
   app_title = NULL,
-  navbar_color = "#007BA7"
+  navbar_color = "#00BDC9"
 )
 }
 \arguments{
@@ -25,8 +25,7 @@ containing \code{modules/}. Default: \code{system.file('', package = 'ShinyCellM
 
 \item{rsconnect.deploy}{Write an rsconnect manifest for deployment. Default: \code{FALSE}.}
 
-\item{data_type}{Preset tab selection: \code{'RNA'}, \code{'RNA_ATAC'}, or \code{'SPATIAL'}.
-Default: \code{'RNA'}.}
+\item{data_type}{Preset tab selection: one or more of \code{ATAC}, \code{MULTI}, \code{RNA}. Matched against the folders actually present on disk under \verb{modules/}.}
 
 \item{enabled_tabs}{Character vector of tab IDs to include. Overrides \code{data_type}
 presets. Default: \code{NULL} (uses all tabs for \code{data_type}).}
@@ -36,6 +35,9 @@ presets. Default: \code{NULL} (uses all tabs for \code{data_type}).}
 \item{disable_ui_server}{Rename legacy \code{ui.R} and \code{server.R} to \code{.bak}. Default: \code{TRUE}.}
 
 \item{app_title}{Title shown in the app navbar. Required.}
+
+\item{navbar_color}{Navbar background colour (hex), also used for buttons/hover
+states in the generated \code{app.R}. Default: \code{"#007BA7"}.}
 }
 \value{
 Invisibly returns \code{NULL}. Writes \code{app.R} and \code{modules/} to \code{out_dir}.
@@ -44,6 +46,84 @@ Invisibly returns \code{NULL}. Writes \code{app.R} and \code{modules/} to \code{
 Takes the output files from \code{\link{prepShinyCellModular}} and writes a
 ready-to-run \code{app.R} with the selected module tabs into \code{out_dir}.
 }
+\section{Step by step}{
+
+\enumerate{
+\item \strong{Help / required arguments.} If \code{out_dir} is missing (and
+\code{help} wasn't set), help is forced on and the help message is printed.
+\code{app_title} is mandatory, missing or \code{NULL} stops with an explicit
+error.
+\item \strong{Resolve and validate paths.} If \code{shinycellmodular.dir.src}
+isn't supplied, tries \code{find.package("ShinyCellModular")} and checks it has
+a \code{modules/} folder, stopping with instructions if it can't be found. Both
+\code{out_dir} and \code{shinycellmodular.dir.src} are normalised with
+\code{normalizePath(mustWork = TRUE)}, so nonexistent paths fail fast with a
+clear error.
+\item \strong{Determine which tabs will be included.} The tab catalogue is built
+dynamically by scanning every file under
+\code{shinycellmodular.dir.src/modules/}, grouped by its immediate subfolder, so
+the available \code{data_type} values and tab IDs always reflect what's
+actually on disk, nothing is hard-coded. Selection rules:
+\itemize{
+\item Neither \code{data_type} nor \code{enabled_tabs} supplied: stops with an
+error asking for one of them.
+\item Only \code{data_type} supplied: all tabs found under that subfolder(s)
+are included (\code{data_type} supports multiple values via
+\code{several.ok = TRUE}).
+\item Only \code{enabled_tabs} supplied: every subfolder is searched for
+matching tab IDs, any tab not found anywhere triggers a \code{warning()}
+listing the missing ones and is dropped.
+\item Both supplied: \code{enabled_tabs} is intersected with the tabs valid
+for \code{data_type}, any tab outside that set stops execution with the list
+of valid tabs for that \code{data_type}.
+}
+\item \strong{Optionally disable legacy \code{ui.R} / \code{server.R}.} If
+\code{disable_ui_server = TRUE} and either file exists in \code{out_dir}, both
+are renamed to \code{.bak} (with a message explaining why), ensuring Shiny loads
+the generated \code{app.R}.
+\item \strong{Copy/refresh modules and write \code{app.R}.} Copies the module
+files for \code{enabled_tabs} into \code{out_dir/modules/} (replacing the folder
+first if \code{overwrite_modules = TRUE}), then builds \code{app.R} from an
+internal template string. The template:
+\itemize{
+\item Sources every \code{.R} file in \code{modules/}, calling
+\code{register_tab()} per module and collecting a \code{tab_registry}.
+\item Warns if no modules registered any tabs, or if a requested tab wasn't
+found in the registry.
+\item Builds one \code{tabPanel} per enabled tab, appending a footer with the
+module's \code{author} / \code{description} / \code{version} / \code{date} /
+\code{source} / \code{contact} metadata.
+\item Wires up \code{server()} by passing through only the arguments each
+module's server function actually declares (matched against
+\code{formals()}), so modules only need to list the globals they use.
+\item Substitutes placeholders (\code{__APP_TITLE__}, \code{__DIR_INPUTS__},
+\code{__ASSAYS__}, \code{__ENABLED_TABS__}, \code{__NAVBAR_COLOR__},
+\code{__SCM_VERSION__}) with \code{gsub(..., fixed = TRUE)} and writes the
+result to \code{out_dir/app.R}.
+}
+\item \strong{Optional rsconnect manifest.} If \code{rsconnect.deploy = TRUE}:
+runs \code{rsconnect::writeManifest(appDir = out_dir)}, then reads
+\code{manifest.json} back in, re-keys every \code{.rds} / \code{.h5} /
+\code{.parquet} entry to be prefixed with \code{out_dir} (so paths resolve
+correctly for the deployed app), and rewrites the manifest.
+}
+}
+
+\section{Notes}{
+
+\itemize{
+\item \code{data_type} and \code{enabled_tabs} are validated against real
+folders/files, so a typo in either produces an explicit list of what's actually
+available rather than a silent no-op.
+\item The generated \code{app.R} is self-contained, it does not call back into
+\code{useShinyCellModular()} at runtime, so \code{shinycellmodular.dir.src} is
+only needed at generation time.
+\item Because server arguments are matched via \code{formals()}, adding new global
+objects to the template's \code{args_to_pass} list is safe for existing modules,
+modules that don't declare the new argument simply won't receive it.
+}
+}
+
 \examples{
 \dontrun{
 useShinyCellModular(

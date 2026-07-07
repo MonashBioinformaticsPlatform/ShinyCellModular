@@ -1,7 +1,7 @@
 # Coverage plot tab — genome browser style tracks, no Seurat/Signac at runtime
 # id    = "coverage_plot"
 # title = "Coverage Plot"
-# runtime deps: Rsamtools, GenomicRanges, IRanges, RcppRoll, ggforce, patchwork
+# runtime deps: Rsamtools, GenomicRanges, IRanges, RcppRoll, ggforce, patchwork, arrow, dplyr
 
 ############################################### Functions ############################################
 
@@ -40,16 +40,26 @@ sc_coverage <- function(frag_info, sc1meta_atac, group_col, chr, start, end, win
   global_sf  <- median(gsf[gsf > 0])
   
   # accumulate cut counts per position per group across all fragment files
-  all_cuts <- lapply(names(frag_info), function(nm) {
+  nF <- length(frag_info)
+  all_cuts <- vector("list", nF)
+  frag_names <- names(frag_info)
+  for (fidx in seq_len(nF)) {
+    nm <- frag_names[fidx]
+    # incProgress needs an active shiny::withProgress from the caller, the reactive
+    # render has one, the pdf/png download handlers do not, tryCatch keeps this quiet
+    # when there is no progress bar to update. this is usually the slowest part
+    # (tabix scanning per fragment file), so it gets the largest share of the budget
+    tryCatch(shiny::incProgress(0.6 / nF, detail = paste0("Reading fragment file ", fidx, " of ", nF)), error = function(e) NULL)
+    
     fi <- frag_info[[nm]]
-    # fi$path is relative to dir_inputs - resolve it there if not found as-is
+    # fi$path is relative to dir_inputs, resolve it there if not found as-is
     frag_path <- if (file.exists(fi$path)) fi$path else file.path(dir_inputs, fi$path)
     if (!file.exists(frag_path)){
       warning("Fragment file not found: ", fi$path, call. = FALSE)
-      return(NULL)
+      next
     }
     res <- tryCatch(sc_read_cuts(frag_path, chr, start, end), error = function(e) NULL)
-    if (is.null(res) || length(res$cuts) == 0) return(NULL)
+    if (is.null(res) || length(res$cuts) == 0) next
     
     # fragment file has original barcodes; frag_info$cells maps suffixed -> original
     # invert to get original -> suffixed lookup
@@ -63,19 +73,29 @@ sc_coverage <- function(frag_info, sc1meta_atac, group_col, chr, start, end, win
     cuts_cells <- cuts_cells[in_region]
     cuts_pos   <- cuts_pos[in_region]
     
-    data.frame(pos = cuts_pos, cell = cuts_cells, stringsAsFactors = FALSE)
-  })
+    all_cuts[[fidx]] <- data.frame(pos = cuts_pos, cell = cuts_cells, stringsAsFactors = FALSE)
+  }
   
   cuts_df <- do.call(rbind, Filter(Negate(is.null), all_cuts))
   if (is.null(cuts_df) || nrow(cuts_df) == 0) return(NULL)
   
-  cuts_df$group <- sc1meta_atac[cuts_df$cell, group_col]
+  # sc1meta_atac is a data.table, so [cell_vector, col] triggers a join, not a row lookup
+  # match() against cell_barcodes works the same for data.table or data.frame
+  cuts_df$group <- sc1meta_atac[[group_col]][match(cuts_df$cell, sc1meta_atac$cell_barcodes)]
   cuts_df       <- cuts_df[!is.na(cuts_df$group), ]
   
   # bin and smooth per group
-  do.call(rbind, lapply(groups, function(grp) {
+  nG <- length(groups)
+  result_list <- vector("list", nG)
+  for (gi in seq_len(nG)) {
+    grp <- groups[gi]
+    # incProgress needs an active shiny::withProgress from the caller, the reactive
+    # render has one, the pdf/png download handlers do not, tryCatch keeps this quiet
+    # when there is no progress bar to update
+    tryCatch(shiny::incProgress(0.3 / nG, detail = paste0("Group ", gi, " of ", nG)), error = function(e) NULL)
+    
     sub <- cuts_df[cuts_df$group == grp, ]
-    if (nrow(sub) == 0) return(NULL)
+    if (nrow(sub) == 0) next
     
     raw <- tabulate(sub$pos - start + 1L, nbins = n_pos)
     
@@ -86,13 +106,94 @@ sc_coverage <- function(frag_info, sc1meta_atac, group_col, chr, start, end, win
     sf <- if (gsf[grp] > 0) gsf[grp] else 1
     normalised <- smoothed / sf * global_sf
     
-    data.frame(
+    result_list[[gi]] <- data.frame(
       pos      = positions,
       coverage = normalised,
       group    = grp,
       stringsAsFactors = FALSE
     )
-  }))
+  }
+  do.call(rbind, result_list)
+}
+
+# fast coverage using the precomputed per-chromosome parquet tables from
+# prepShinyCellModular (ATAC/tiles/<chr>.parquet), only opens the one chromosome
+# file needed for this region instead of scanning fragment files live, same
+# normalisation as sc_coverage() so the two stay comparable
+sc_coverage_tiles <- function(tiles_dir, sc1meta_atac, group_col, chr, start, end) {
+  
+  tile_file <- file.path(tiles_dir, paste0(chr, ".parquet"))
+  if (!file.exists(tile_file)) return(NULL)
+  
+  # .data/.env pronouns avoid clashing "start"/"end" the columns with start/end the
+  # function arguments, arrow pushes this filter down so only matching rows are read
+  sub <- tryCatch(
+    arrow::open_dataset(tile_file) |>
+      dplyr::filter(.data$end >= .env$start, .data$start <= .env$end) |>
+      dplyr::collect(),
+    error = function(e) NULL
+  )
+  if (is.null(sub) || nrow(sub) == 0) return(NULL)
+  
+  sub$group <- sc1meta_atac[[group_col]][match(sub$cell, sc1meta_atac$cell_barcodes)]
+  sub <- sub[!is.na(sub$group), ]
+  if (nrow(sub) == 0) return(NULL)
+  
+  # tab stage calculation, kept here on purpose: scale factors depend on which
+  # grouping/split the user picked interactively, so they cannot be precomputed at
+  # prep time for every possible combination, this is cheap (metadata only, no
+  # fragment or tile data involved)
+  groups      <- unique(sc1meta_atac[[group_col]])
+  groups      <- groups[!is.na(groups)]
+  gsf <- vapply(groups, function(grp) {
+    idx <- sc1meta_atac[[group_col]] == grp & !is.na(sc1meta_atac[[group_col]])
+    n   <- sum(idx)
+    if (n == 0) return(0)
+    n * mean(sc1meta_atac$nCount_ATAC[idx], na.rm = TRUE)
+  }, numeric(1))
+  names(gsf) <- groups
+  global_sf  <- median(gsf[gsf > 0])
+  
+  # bins are anchored to an arbitrary per-chromosome offset at prep time (min start
+  # on that chromosome), not to the query start, so use the bin boundaries actually
+  # present in the data rather than reconstructing a grid, which would not line up
+  bin_grid <- unique(sub[, c("start", "end")])
+  bin_grid <- bin_grid[order(bin_grid$start), ]
+  
+  nG <- length(groups)
+  result_list <- vector("list", nG)
+  for (gi in seq_len(nG)) {
+    grp <- groups[gi]
+    # parquet read is already fast, this is mostly for a consistent progress bar
+    tryCatch(shiny::incProgress(0.3 / nG, detail = paste0("Group ", gi, " of ", nG)), error = function(e) NULL)
+    
+    grp_sub <- sub[sub$group == grp, ]
+    
+    # tab stage calculation, kept here on purpose: same reason as gsf above, this
+    # depends on the interactively chosen group/split, not something prep can do
+    # sum counts across cells in this group, per bin, rowsum is much faster than
+    # aggregate for this, same idea as the rowsum used in prepShinyCellModular.R
+    raw <- rep(0, nrow(bin_grid))
+    if (nrow(grp_sub) > 0) {
+      sums       <- rowsum(grp_sub$count, group = grp_sub$start, reorder = TRUE)
+      bin_starts <- as.integer(rownames(sums))
+      raw[match(bin_starts, bin_grid$start)] <- as.integer(sums[, 1])
+    }
+    
+    sf <- if (gsf[grp] > 0) gsf[grp] else 1
+    normalised <- raw / sf * global_sf
+    
+    # one row per bin, not per bp, no smoothing pass either, the bins are already
+    # averaged at prep time (see atac_tile_binsize)
+    result_list[[gi]] <- data.frame(
+      start    = bin_grid$start,
+      end      = bin_grid$end,
+      coverage = normalised,
+      group    = grp,
+      stringsAsFactors = FALSE
+    )
+  }
+  do.call(rbind, result_list)
 }
 
 sc_plot_coverage <- function(cov_df, chr, start, end) {
@@ -111,8 +212,19 @@ sc_plot_coverage <- function(cov_df, chr, start, end) {
   colors <- scales::hue_pal()(n_grp)
   names(colors) <- levels(cov_df$group)
   
-  ggplot(cov_df, aes(pos, coverage, fill = group)) +
-    geom_area(stat = "identity", alpha = 1) +
+  # binned data (from sc_coverage_tiles) has start/end columns, one row per bin,
+  # drawn as blocks since the value really is flat within each bin. per-bp data
+  # (from sc_coverage, the live tabix path) has pos, one row per base pair, drawn
+  # as a continuous area like before
+  if ("start" %in% names(cov_df)) {
+    p <- ggplot(cov_df, aes(xmin = start, xmax = end + 1, ymin = 0, ymax = coverage, fill = group)) +
+      geom_rect()
+  } else {
+    p <- ggplot(cov_df, aes(pos, coverage, fill = group)) +
+      geom_area(stat = "identity", alpha = 1)
+  }
+  
+  p +
     geom_hline(yintercept = 0, linewidth = 0.1) +
     facet_wrap(~ group, ncol = 1, strip.position = "left") +
     scale_fill_manual(values = colors) +
@@ -121,7 +233,7 @@ sc_plot_coverage <- function(cov_df, chr, start, end) {
     ylim(c(0, ymax)) +
     xlab(paste0(chr, " position (bp)")) +
     ylab(paste0("Normalized signal\n(range 0 - ", ymax, ")")) +
-    theme_classic() +
+    theme_classic(base_size = 14) +
     theme(
       legend.position    = "none",
       strip.background   = element_blank(),
@@ -148,7 +260,7 @@ sc_plot_peaks <- function(peaks, chr, start, end) {
                  linewidth = 2, colour = "dimgrey") +
     scale_x_continuous(limits = c(start, end), expand = c(0, 0)) +
     xlab(NULL) + ylab("Peaks") +
-    theme_classic() +
+    theme_classic(base_size = 14) +
     theme(axis.text.y  = element_blank(), axis.ticks.y = element_blank(),
           axis.text.x  = element_blank(), axis.ticks.x = element_blank(),
           axis.line.x.bottom = element_blank())
@@ -180,7 +292,7 @@ sc_plot_links <- function(links, chr, start, end) {
                            limits = c(min_col, max(df$score)), n.breaks = 3) +
     scale_x_continuous(limits = c(start, end), expand = c(0, 0)) +
     xlab(NULL) + ylab("Links") +
-    theme_classic() +
+    theme_classic(base_size = 14) +
     theme(axis.text.y  = element_blank(), axis.ticks.y = element_blank(),
           axis.text.x  = element_blank(), axis.ticks.x = element_blank(),
           axis.line.x.bottom = element_blank())
@@ -243,14 +355,14 @@ sc_plot_annotation <- function(annotation, chr, start, end) {
                  linewidth = 0.5, show.legend = FALSE) +
     geom_text(data = bodies,
               aes(x = position, y = dodge + 0.3, label = gene_name),
-              size = 2.5) +
+              size = 3.5) +
     scale_colour_manual(values = c("+" = "darkblue", "-" = "darkgreen",
                                    "*" = "darkblue")) +
     scale_x_continuous(limits = c(start, end), expand = c(0, 0),
                        labels = scales::comma) +
     scale_y_continuous(limits = c(0.5, max(bodies$dodge) + 0.6)) +
     xlab(paste0(chr, " position (bp)")) + ylab("Genes") +
-    theme_classic() +
+    theme_classic(base_size = 14) +
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
           panel.grid = element_blank())
 }
@@ -269,7 +381,7 @@ sc_plot_expression <- function(gene, sc1meta, sc1gene, h5_path, group_col) {
     facet_wrap(~ group, ncol = 1, strip.position = "right") +
     scale_x_continuous(position = "bottom", limits = c(0, NA)) +
     xlab(gene) + ylab(NULL) +
-    theme_classic() +
+    theme_classic(base_size = 14) +
     theme(legend.position    = "none",
           strip.background   = element_blank(),
           strip.text.y       = element_blank(),
@@ -281,9 +393,16 @@ sc_gene_region <- function(gene, annotation) {
   if (is.null(annotation)) return(NULL)
   hits <- annotation[!is.na(annotation$gene_name) & annotation$gene_name == gene]
   if (length(hits) == 0) return(NULL)
-  list(chr   = as.character(GenomicRanges::seqnames(hits)[1]),
-       start = min(GenomicRanges::start(hits)),
-       end   = max(GenomicRanges::end(hits)))
+  # some gene_name values are reused across multiple, unrelated loci (repeat families,
+  # small RNA genes, pseudogenes), so restrict to the first hit's chromosome and cluster
+  # nearby entries, instead of spanning min/max across every matching locus genome wide
+  first_chr <- as.character(GenomicRanges::seqnames(hits)[1])
+  hits      <- hits[as.character(GenomicRanges::seqnames(hits)) == first_chr]
+  clusters  <- GenomicRanges::reduce(hits, min.gapwidth = 10000L)
+  locus     <- IRanges::subsetByOverlaps(clusters, hits[1])
+  list(chr   = first_chr,
+       start = min(GenomicRanges::start(locus)),
+       end   = max(GenomicRanges::end(locus)))
 }
 
 sc_parse_region <- function(s) {
@@ -329,22 +448,32 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
     h4("Genome browser coverage tracks"),
     "In this tab, users can visualise Tn5 insertion frequency across genomic regions ",
     "with optional annotation, peak, link, and expression tracks.",
+    br(),
+    "Coverage data is precomputed and binned at 500bp resolution during data preparation, ",
+    "so values are already averaged within each 500bp window rather than at single base pair precision.",
     br(), br(),
     
     fluidRow(
       column(
         3, style = "border-right: 2px solid black",
-        
         h4("Region"),
+        radioButtons(ns("sc1cov_input_method"), "Input method:",
+                     choices = c("Gene", "Region"), selected = "Gene", inline = TRUE),
+        conditionalPanel(
+          condition = sprintf("input['%s'] == 'Gene'", ns("sc1cov_input_method")),
+          selectizeInput(ns("sc1cov_gene"), "Gene name:",
+                         choices = NULL, selected = NULL,
+                         options = list(placeholder = "Type a gene name", maxOptions = 10))
+        ),
         
-        selectizeInput(ns("sc1cov_gene"), "Gene name:",
-                       choices = NULL, selected = NULL,
-                       options = list(placeholder = "Type a gene name", maxOptions = 10)),
-        
-        tags$p(style = "text-align:center; color:#888; font-size:12px;", "— or —"),
-        
-        textInput(ns("sc1cov_region"), "Manual region (chr-start-end):",
-                  placeholder = "e.g. chr1-791818-1020120"),
+        conditionalPanel(
+          condition = sprintf("input['%s'] == 'Region'", ns("sc1cov_input_method")),
+          selectInput(ns("sc1cov_chr"), "Chromosome:", choices = NULL),
+          fluidRow(
+            column(6, numericInput(ns("sc1cov_start"), "Start:", value = NULL)),
+            column(6, numericInput(ns("sc1cov_end"),   "End:",   value = NULL))
+          )
+        ),
         
         numericInput(ns("sc1cov_ext_up"), "Extend upstream (bp):",   value = 1000, min = 0, step = 500),
         numericInput(ns("sc1cov_ext_dn"), "Extend downstream (bp):", value = 1000, min = 0, step = 500),
@@ -378,8 +507,8 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
         ),
         
         hr(),
-        
-        numericInput(ns("sc1cov_window"), "Smoothing window (bp):", value = 100, min = 10, step = 50),
+        actionButton(ns("sc1cov_plot_btn"), "Update plot", class = "btn btn-primary btn-lg", style = "width: 100%;"),
+        # actionButton(ns("sc1cov_plot_btn"), "Update plot", class = "btn btn-primary"),
         
         radioButtons(ns("sc1cov_psz"), "Plot size:",
                      choices = c("Small", "Medium", "Large"), selected = "Medium", inline = TRUE)
@@ -395,7 +524,11 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
         div(style = "display:inline-block",
             numericInput(ns("sc1cov_h"), "Height (in):", width = "120px", min = 2, max = 40, value = 12, step = 0.5)),
         div(style = "display:inline-block",
-            numericInput(ns("sc1cov_w"), "Width (in):",  width = "120px", min = 2, max = 40, value = 10, step = 0.5))
+            numericInput(ns("sc1cov_w"), "Width (in):",  width = "120px", min = 2, max = 40, value = 10, step = 0.5)),
+        br(), br(),
+        # temporary debug output for fragment path troubleshooting
+        h5("Current Plot: Log info"),
+        verbatimTextOutput(ns("sc1cov_debug"))
       )
     )
   )
@@ -405,7 +538,7 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
 
 coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs,
                                  sc1meta_atac, sc1fragmentpaths, sc1annotation,
-                                 sc1peaks, sc1links) {
+                                 sc1peaks, sc1links, sc1atactiles = NULL) {
   moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
@@ -420,70 +553,164 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     
     gene_choices <- if (!is.null(sc1annotation) &&
                         "gene_name" %in% names(GenomicRanges::mcols(sc1annotation))) {
-      sort(unique(sc1annotation$gene_name[!is.na(sc1annotation$gene_name)]))
+      ann <- sc1annotation
+      # restrict to protein_coding genes when biotype is available, this keeps repeat
+      # families and small RNAs (e.g. Y_RNA, 5S_rRNA) that reuse gene_name across many
+      # loci out of the picker entirely, so a selected gene is always a single locus
+      if ("gene_biotype" %in% names(GenomicRanges::mcols(ann)))
+        ann <- ann[!is.na(ann$gene_biotype) & ann$gene_biotype == "protein_coding"]
+      sort(unique(ann$gene_name[!is.na(ann$gene_name)]))
     } else names(sc1gene)
     
-    updateSelectizeInput(session, "sc1cov_gene",      choices = gene_choices,   server = TRUE)
-    updateSelectizeInput(session, "sc1cov_expr_gene", choices = names(sc1gene), server = TRUE)
+    # chromosome list for the Region input method, annotation first, peaks as fallback
+    chr_choices <- if (!is.null(sc1annotation)) {
+      sort(unique(as.character(GenomicRanges::seqnames(sc1annotation))))
+    } else if (!is.null(sc1peaks)) {
+      sort(unique(as.character(GenomicRanges::seqnames(sc1peaks))))
+    } else character(0)
+    
+    # sending choices and a selected value in the same initial message often doesn't
+    # render on first load with server-side selectize, onFlushed waits until the client
+    # widget actually exists before we push the default gene
+    session$onFlushed(function() {
+      updateSelectizeInput(session, "sc1cov_gene",      choices = gene_choices,   selected = gene_choices[1], server = TRUE)
+      updateSelectizeInput(session, "sc1cov_expr_gene", choices = names(sc1gene), server = TRUE)
+      updateSelectInput(session, "sc1cov_chr", choices = chr_choices, selected = chr_choices[1])
+    }, once = TRUE)
     
     if (!exists("pList", inherits = TRUE))
       pList <<- c(Small = "400px", Medium = "650px", Large = "900px")
     
-    
     # temporary debug output for fragment path troubleshooting
-    debugTxt <- reactiveVal(" THIS IS THE VALUE")
+    debugTxt <- reactiveVal("")
+    
+    # eventReactive gates the coverage computation behind the Plot button, so it only
+    # runs once on load and then again whenever the user clicks Plot, instead of on
+    # every input change, same run-button pattern as pseudobulk.R's input$sc1e1_run
+    plot_result <- eventReactive(input$sc1cov_plot_btn, {
+      shiny::withProgress(message = "Loading coverage plot", value = 0, {
+        
+        gene <- trimws(input$sc1cov_gene %||% "")
+        r    <- if (input$sc1cov_input_method %||% "Gene" == "Gene") {
+          if (nzchar(gene)) sc_gene_region(gene, sc1annotation) else NULL
+        } else {
+          chr <- input$sc1cov_chr
+          st  <- input$sc1cov_start
+          en  <- input$sc1cov_end
+          if (!is.null(chr) && nzchar(chr) && !is.null(st) && !is.null(en) && !is.na(st) && !is.na(en))
+            list(chr = chr, start = as.integer(st), end = as.integer(en))
+          else NULL
+        }
+        # falling back to gene_choices[1] here is safe again now that this block is
+        # gated behind the Plot button, it only affects the one automatic run on load
+        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation)
+        if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths)) {
+          # temporary debug output for fragment path troubleshooting
+          dbg <- paste0(
+            "Early return, one of these is NULL:\n",
+            "  r is.null: ", is.null(r), "\n",
+            "  sc1meta_atac is.null: ", is.null(sc1meta_atac), "\n",
+            "  sc1fragmentpaths is.null: ", is.null(sc1fragmentpaths), "\n",
+            "  input method: '", input$sc1cov_input_method %||% "", "'\n",
+            "  gene input: '", gene, "'\n",
+            "  chr/start/end input: '", input$sc1cov_chr %||% "", "', '", input$sc1cov_start %||% "", "', '", input$sc1cov_end %||% "", "'\n",
+            "  sc1annotation is.null: ", is.null(sc1annotation)
+          )
+          debugTxt(dbg)
+          message(dbg)
+          return(ggplot() + theme_void())
+        }
+        r$start <- max(1L, r$start - (input$sc1cov_ext_up %||% 1000))
+        r$end   <- r$end + (input$sc1cov_ext_dn %||% 1000)
+        
+        grp       <- sc1conf[UI == input$sc1cov_group]$ID
+        split_lbl <- input$sc1cov_splitby
+        split_col <- if (!is.null(split_lbl) && split_lbl != "None") sc1conf[UI == split_lbl]$ID else NULL
+        meta      <- sc1meta_atac
+        meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
+          paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
+        
+        # temporary debug output for fragment path troubleshooting
+        frag_status <- vapply(names(sc1fragmentpaths), function(nm) {
+          fi <- sc1fragmentpaths[[nm]]
+          fp <- if (file.exists(fi$path)) fi$path else file.path(dir_inputs, fi$path)
+          paste0("  [", nm, "] ", fp, " (exists: ", file.exists(fp), ")")
+        }, character(1))
+        dbg <- paste0(
+          "Region: ", r$chr, ":", r$start, "-", r$end, "\n",
+          "Group column: ", grp, "\n",
+          "Fragment files:\n", paste(frag_status, collapse = "\n"), "\n",
+          # temporary debug output for links troubleshooting
+          "sc1links is.null: ", is.null(sc1links), "\n",
+          "sc1links total length: ", if (is.null(sc1links)) NA else length(sc1links), "\n",
+          # temporary debug output for tile matrix troubleshooting
+          "sc1atactiles is.null: ", is.null(sc1atactiles), " (", if (is.null(sc1atactiles)) "using live tabix scan" else "using precomputed tile parquet", ")"
+        )
+        
+        # temporary debug output for timing troubleshooting
+        t_data0 <- Sys.time()
+        cov_df <- tryCatch(
+          if (!is.null(sc1atactiles))
+            sc_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
+          else
+            sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
+          error = function(e) { message("Coverage error: ", conditionMessage(e)); NULL }
+        )
+        t_data1 <- Sys.time()
+        
+        # temporary debug output for fragment path troubleshooting
+        dbg <- paste0(dbg, "\n",
+                      "cov_df: ", if (is.null(cov_df)) "NULL" else paste0(nrow(cov_df), " rows, groups: ", paste(unique(cov_df$group), collapse = ", ")), "\n",
+                      # temporary debug output for timing troubleshooting
+                      "cov_df computation time: ", round(as.numeric(difftime(t_data1, t_data0, units = "secs")), 2), "s"
+        )
+        debugTxt(dbg)
+        message(dbg)
+        
+        shiny::incProgress(0.1, detail = "Building tracks")
+        
+        # temporary debug output for timing troubleshooting
+        t_tracks0 <- Sys.time()
+        track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end)
+        track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end)           else NULL
+        track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end)           else NULL
+        track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end) else NULL
+        track_expr  <- if (isTRUE(input$sc1cov_show_expr)) {
+          g <- trimws(input$sc1cov_expr_gene %||% "")
+          if (nzchar(g)) sc_plot_expression(g, sc1meta, sc1gene, file.path(dir_inputs, "RNA", "sc1gexpr.h5"), grp) else NULL
+        } else NULL
+        
+        combined <- sc_combine_tracks(
+          list(coverage = track_cov, peaks = track_peaks, links = track_links, annotation = track_annot),
+          c(coverage = 10, peaks = 1, links = 2, annotation = 2),
+          expr_plot = track_expr
+        )
+        t_tracks1 <- Sys.time()
+        
+        # temporary debug output for timing troubleshooting
+        dbg <- paste0(dbg, "\n",
+                      "track building + combine time: ", round(as.numeric(difftime(t_tracks1, t_tracks0, units = "secs")), 2), "s"
+        )
+        debugTxt(dbg)
+        message(dbg)
+        
+        combined
+      })
+    }, ignoreNULL = FALSE)
     
     output$sc1cov_oup <- renderPlot({
-      gene <- trimws(input$sc1cov_gene %||% "")
-      r    <- if (nzchar(gene)) {sc_gene_region(gene, sc1annotation)} else{sc_parse_region(trimws(input$sc1cov_region %||% ""))}
-      if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths))
-        return(ggplot() + theme_void())
-      r$start <- max(1L, r$start - (input$sc1cov_ext_up %||% 1000))
-      r$end   <- r$end + (input$sc1cov_ext_dn %||% 1000)
+      p <- plot_result()
       
-      grp       <- sc1conf[UI == input$sc1cov_group]$ID
-      split_lbl <- input$sc1cov_splitby
-      split_col <- if (!is.null(split_lbl) && split_lbl != "None") sc1conf[UI == split_lbl]$ID else NULL
-      meta      <- sc1meta_atac
-      meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
-        paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
-      
-      # temporary debug output for fragment path troubleshooting
-      frag_status <- vapply(names(sc1fragmentpaths), function(nm) {
-        fi <- sc1fragmentpaths[[nm]]
-        fp <- if (file.exists(fi$path)) fi$path else file.path(dir_inputs, fi$path)
-        paste0("  [", nm, "] ", fp, " (exists: ", file.exists(fp), ")")
-      }, character(1))
-      debugTxt(paste0(
-        "Region: ", r$chr, ":", r$start, "-", r$end, "\n",
-        "Group column: ", grp, "\n",
-        "Fragment files:\n", paste(frag_status, collapse = "\n")
-      ))
-      
-      cov_df <- tryCatch(
-        sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
-        error = function(e) { message("Coverage error: ", conditionMessage(e)); NULL }
-      )
-      
-      # temporary debug output for fragment path troubleshooting
-      debugTxt(paste0(debugTxt(), "\n",
-                      "cov_df: ", if (is.null(cov_df)) "NULL" else paste0(nrow(cov_df), " rows, groups: ", paste(unique(cov_df$group), collapse = ", "))
-      ))
-      
-      track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end)
-      track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end)           else NULL
-      track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end)           else NULL
-      track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end) else NULL
-      track_expr  <- if (isTRUE(input$sc1cov_show_expr)) {
-        g <- trimws(input$sc1cov_expr_gene %||% "")
-        if (nzchar(g)) sc_plot_expression(g, sc1meta, sc1gene, file.path(dir_inputs, "sc1gexpr.h5"), grp) else NULL
-      } else NULL
-      
-      sc_combine_tracks(
-        list(coverage = track_cov, peaks = track_peaks, links = track_links, annotation = track_annot),
-        c(coverage = 10, peaks = 1, links = 2, annotation = 2),
-        expr_plot = track_expr
-      )
+      # temporary debug output for timing troubleshooting
+      t_draw0 <- Sys.time()
+      shiny::withProgress(message = "Rendering plot", value = 0.5, {
+        print(p)
+      })
+      t_draw1 <- Sys.time()
+      isolate({
+        debugTxt(paste0(debugTxt(), "\n",
+                        "draw time: ", round(as.numeric(difftime(t_draw1, t_draw0, units = "secs")), 2), "s"))
+      })
     })
     
     output$sc1cov_oup.ui <- renderUI({
@@ -497,8 +724,18 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       filename = function() paste0("coverage_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf"),
       content  = function(file) {
         gene <- trimws(input$sc1cov_gene %||% "")
-        r    <- if (nzchar(gene)) sc_gene_region(gene, sc1annotation)
-        else sc_parse_region(trimws(input$sc1cov_region %||% ""))
+        r    <- if (input$sc1cov_input_method %||% "Gene" == "Gene") {
+          if (nzchar(gene)) sc_gene_region(gene, sc1annotation) else NULL
+        } else {
+          chr <- input$sc1cov_chr
+          st  <- input$sc1cov_start
+          en  <- input$sc1cov_end
+          if (!is.null(chr) && nzchar(chr) && !is.null(st) && !is.null(en) && !is.na(st) && !is.na(en))
+            list(chr = chr, start = as.integer(st), end = as.integer(en))
+          else NULL
+        }
+        # r should never be NULL, fall back to the first gene in the list if both gene and region inputs are empty or invalid
+        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation)
         if (is.null(r)) return(NULL)
         r$start <- max(1L, r$start - (input$sc1cov_ext_up %||% 1000))
         r$end   <- r$end + (input$sc1cov_ext_dn %||% 1000)
@@ -509,7 +746,10 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
           paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
         cov_df <- tryCatch(
-          sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
+          if (!is.null(sc1atactiles))
+            sc_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
+          else
+            sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) NULL
         )
         p <- sc_combine_tracks(
@@ -527,8 +767,18 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       filename = function() paste0("coverage_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png"),
       content  = function(file) {
         gene <- trimws(input$sc1cov_gene %||% "")
-        r    <- if (nzchar(gene)) sc_gene_region(gene, sc1annotation)
-        else sc_parse_region(trimws(input$sc1cov_region %||% ""))
+        r    <- if (input$sc1cov_input_method %||% "Gene" == "Gene") {
+          if (nzchar(gene)) sc_gene_region(gene, sc1annotation) else NULL
+        } else {
+          chr <- input$sc1cov_chr
+          st  <- input$sc1cov_start
+          en  <- input$sc1cov_end
+          if (!is.null(chr) && nzchar(chr) && !is.null(st) && !is.null(en) && !is.na(st) && !is.na(en))
+            list(chr = chr, start = as.integer(st), end = as.integer(en))
+          else NULL
+        }
+        # r should never be NULL, fall back to the first gene in the list if both gene and region inputs are empty or invalid
+        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation)
         if (is.null(r)) return(NULL)
         r$start <- max(1L, r$start - (input$sc1cov_ext_up %||% 1000))
         r$end   <- r$end + (input$sc1cov_ext_dn %||% 1000)
@@ -539,7 +789,10 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         meta[["__grp__"]] <- if (!is.null(split_col) && split_col %in% colnames(meta))
           paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
         cov_df <- tryCatch(
-          sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, input$sc1cov_window %||% 100, dir_inputs),
+          if (!is.null(sc1atactiles))
+            sc_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
+          else
+            sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) NULL
         )
         p <- sc_combine_tracks(
@@ -567,7 +820,7 @@ register_tab(
   author      = "Laura Perlaza-Jimenez",
   description = "Genome browser coverage tracks for ATAC-seq data, new tab created by MGBP",
   version     = "1.0",
-  date        = "Jan 2026",
+  date        = "Jul 2026",
   source      = "MGBP custom",
   contact     = "laura.perlaza-jimenez@monash.edu"
 )

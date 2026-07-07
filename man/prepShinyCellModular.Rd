@@ -26,14 +26,15 @@ prepShinyCellModular(
   counts_layer = "counts",
   do_make_app = TRUE,
   gene_mapping = TRUE,
-  install_missing = FALSE,
-  verbose = TRUE,
   do_motifs = "auto",
   motifs_findmotifs = NULL,
   motifs_overwrite = TRUE,
   fragments_paths = NULL,
+  atac_tile_binsize = 500,
   custom_colors = NULL,
   default_genes = NULL,
+  install_missing = FALSE,
+  verbose = TRUE,
   help = FALSE
 )
 }
@@ -42,7 +43,7 @@ prepShinyCellModular(
 
 \item{seurat_rds}{Path to a \code{.rds} Seurat object. Alternative to \code{seurat_obj}.}
 
-\item{out_dir}{Output directory. Default: \code{'Files_ShinyCell'}.}
+\item{out_dir}{Output directory. Default: \code{'Files_ShinyCellModular'}.}
 
 \item{shiny_title}{Title for the Shiny app.}
 
@@ -80,10 +81,6 @@ prepShinyCellModular(
 
 \item{gene_mapping}{Map gene names in ShinyCell. Default: \code{TRUE}.}
 
-\item{install_missing}{Auto-install missing packages. Default: \code{FALSE}.}
-
-\item{verbose}{Print progress messages. Default: \code{TRUE}.}
-
 \item{do_motifs}{Extract motifs from ATAC assay. Runs automatically when ATAC is in
 \code{assays_selected} and the motifs slot is populated. Set to \code{FALSE} to skip.
 Default: \code{'auto'}.}
@@ -96,6 +93,10 @@ Default: \code{'auto'}.}
 e.g. \code{list('1' = '/path/to/sample1.tsv.gz')}. If \code{NULL}, paths are copied
 from the original paths in the object. Default: \code{NULL}.}
 
+\item{atac_tile_binsize}{Bin width in bp for the precomputed genome-wide insertion
+count matrix used by the Coverage Plot tab. Smaller bins are more precise but
+make prep slower and the saved matrix bigger. Default: \code{500}.}
+
 \item{custom_colors}{Named character vector of label -> hex color to override ShinyCell
 default colors. Extra names not in the data are ignored. Default: \code{NULL}.}
 
@@ -103,10 +104,68 @@ default colors. Extra names not in the data are ignored. Default: \code{NULL}.}
 (e.g. \code{c('CD4', 'CD8A')}). If \code{NULL}, ShinyCell picks its own defaults.
 Default: \code{NULL}.}
 
+\item{install_missing}{Auto-install missing packages. Default: \code{FALSE}.}
+
+\item{verbose}{Print progress messages. Default: \code{TRUE}.}
+
 \item{help}{Print the help message and return. Default: \code{FALSE}.}
 }
 \value{
 Invisibly returns \code{NULL}. Writes output files to \code{out_dir}.
+
+#' @section Step by step:
+\enumerate{
+\item \strong{Dependency check.} Builds a list of required CRAN, Bioconductor,
+and GitHub-only packages (\code{ShinyCell}, \code{ggseqlogo}, \code{FlexDotPlot},
+and \code{presto} if \code{do_markers = TRUE}; \code{Signac} is added automatically
+if \code{"ATAC"} is in \code{assays_selected}). Missing packages stop execution
+with an install hint unless \code{install_missing = TRUE}, in which case they are
+installed automatically.
+\item \strong{Load the Seurat object.} Exactly one of \code{seurat_obj} /
+\code{seurat_rds} must resolve to a Seurat object. If both are \code{NULL} (and
+\code{help} wasn't explicitly set), \code{help} is forced to \code{TRUE} and the
+function prints its help message and returns. Passing a file path to
+\code{seurat_obj} or an in-memory object to \code{seurat_rds} triggers a
+\code{warning()} pointing at the likely mistake.
+\item \strong{Validate \code{assays_selected}.} Checks every entry exists in
+\code{Seurat::Assays(seurat_obj)}; stops with the requested vs. available assay
+names otherwise.
+\item \strong{Ensure assay keys exist.} For any assay with a missing or empty
+\code{Key()}, sets one automatically (\code{tolower(assay) + "_"}) so downstream
+Seurat/Signac calls don't fail.
+\item \strong{Main loop over \code{assays_selected}.} For each \code{active_assay}
+(\code{DefaultAssay(seurat_obj) <- active_assay}):
+\itemize{
+\item \emph{RNA branch} (\code{active_assay == "RNA"}): creates
+\code{out_dir/RNA/}, optionally sets \code{Idents()} from \code{ident_col},
+optionally adds 3D UMAP reductions (\code{do_umap3d}, skipping any reduction
+not present with a message), and optionally computes markers per resolution
+column matched by \code{markers_res_pattern} using \code{presto::wilcoxauc}
+(skipping resolutions with fewer than 2 groups), writing the combined table
+to \code{markers_file} via \code{arrow::write_parquet()}.
+\item \emph{ATAC branch} (\code{active_assay == "ATAC"}): creates
+\code{out_dir/ATAC/}, resolves whether to run motif extraction from
+\code{do_motifs} (\code{"auto"} checks the \code{@motifs} slot; otherwise
+\code{isTRUE(do_motifs)}), extracting PWMs and names into
+\code{sc1motifs.rds} and \code{sc1motifs_meta.parquet} if so, optionally
+joined with \code{motifs_findmotifs} enrichment scores. Always extracts
+static ATAC objects (\code{sc1annotation.rds}, \code{sc1peaks.rds},
+\code{sc1links.rds}, each skipped individually with a message if the slot is
+empty), and copies fragment files into
+\code{out_dir/ATAC/fragments/index<N>/}, using \code{fragments_paths}
+overrides for any file missing from the object's original path. Writes
+\code{sc1fragmentpaths.rds}.
+\item \emph{All assays}: if \code{do_make_app = TRUE}, optionally runs
+\code{FindVariableFeatures()}, then \code{ShinyCell::createConfig()} and
+\code{ShinyCell::makeShinyApp()} into \code{out_dir/<assay>/}. If
+\code{custom_colors} is supplied, patches matching factor-level colours into
+the \code{sc1conf.rds} that \code{makeShinyApp()} just wrote (since
+\code{makeShinyApp()} ignores any pre-patched config passed in). If
+\code{do_counts_h5 = TRUE}, writes the sparse counts matrix (CSC format:
+\code{i}, \code{p}, \code{x}, \code{dims}, \code{genes}, \code{cells}) to
+\code{out_dir/<assay>/sc1counts.h5} via \code{hdf5r}.
+}
+}
 }
 \description{
 Takes a Seurat object from single cell experiments and prepares all files
@@ -114,6 +173,22 @@ needed to run a ShinyCellModular interactive Shiny app. Writes HDF5 counts,
 ShinyCell config files, optional 3D UMAP, marker genes, and motif data to
 \code{out_dir}.
 }
+\section{Notes}{
+
+\itemize{
+\item \code{custom_colors} passed via \code{source("colors.R")} returns a list, not
+a named vector. The function detects this, extracts \code{$value} automatically,
+and warns you to pass \code{custom_colors = source("colors.R")$value} directly
+next time.
+\item Fragment files that can't be found anywhere (neither the original path nor a
+\code{fragments_paths} override) are reported with a ready-to-paste
+\code{fragments_paths = list(...)} snippet in the message.
+\item \code{install_missing = TRUE} also runs \code{setRepositories(ind = 1:3)}
+before \code{install.packages()} so Bioconductor dependencies (e.g. for
+\code{Signac}) resolve correctly.
+}
+}
+
 \examples{
 \dontrun{
 prepShinyCellModular(
