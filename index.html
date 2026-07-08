@@ -289,15 +289,261 @@
 </h3>
 <p>Coming soon.</p>
 </div>
+</div>
+<div class="section level2">
+<h2 id="available-tabs-1">Available tabs<a class="anchor" aria-label="anchor" href="#available-tabs-1"></a>
+</h2>
 <div class="section level3">
-<h3 id="atac">ATAC<a class="anchor" aria-label="anchor" href="#atac"></a>
+<h3 id="rna-1">RNA<a class="anchor" aria-label="anchor" href="#rna-1"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="15%">
+<col width="13%">
+<col width="31%">
+<col width="18%">
+<col width="20%">
+</colgroup>
+<thead><tr>
+<th>Tab ID (<code>enabled_tabs</code>)</th>
+<th>Tab title</th>
+<th>What it shows</th>
+<th>Extra prep needed</th>
+<th>Multi-dataset variant (<code>_multi</code>)</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>cellinfo_cellinfo</code></td>
+<td>CellInfo vs CellInfo</td>
+<td>2D embedding coloured by metadata</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>cellinfo_geneexpr</code></td>
+<td>CellInfo vs GeneExpr</td>
+<td>2D embedding with gene expression overlay</td>
+<td>n/a</td>
+<td><code>cellinfo_geneexpr_multi</code></td>
+</tr>
+<tr>
+<td><code>cellinfo3D_cellinfo3D</code></td>
+<td>CellInfo3D</td>
+<td>Interactive 3D embedding coloured by metadata</td>
+<td>
+<code>do_umap3d = TRUE</code> in prep</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>cellinfo3D_geneexpr3D</code></td>
+<td>CellInfo3D vs GeneExpr</td>
+<td>Interactive 3D embedding with gene expression overlay</td>
+<td>
+<code>do_umap3d = TRUE</code> in prep</td>
+<td><code>cellinfo3D_geneexpr3D_multi</code></td>
+</tr>
+<tr>
+<td><code>genecoex</code></td>
+<td>Gene Coexpression</td>
+<td>Coexpression of selected genes across cells or groups</td>
+<td>n/a</td>
+<td><code>genecoex_multi</code></td>
+</tr>
+<tr>
+<td><code>violin_boxplot</code></td>
+<td>Violin / BoxPlot</td>
+<td>Violin and boxplots for gene expression or metadata</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>proportions</code></td>
+<td>Cell Proportions</td>
+<td>Cell composition across groups</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>bubble_heatmap</code></td>
+<td>Bubble Plot / Heatmap</td>
+<td>Bubble plot and heatmap for gene sets across groups</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>pseudobulk</code></td>
+<td>Pseudobulk DE</td>
+<td>Pseudobulk aggregation and differential expression</td>
+<td>
+<code>do_counts_h5 = TRUE</code> in prep</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>genexpr_waffle</code></td>
+<td>Gene Expression Waffle Plot</td>
+<td>Waffle plot alternative to bubble plot / heatmap for a small gene list</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>split_violin</code></td>
+<td>Split Violin Plot</td>
+<td>Two groups compared side by side within one violin shape</td>
+<td>n/a</td>
+<td>n/a</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="qc-function-1">QC function<a class="anchor" aria-label="anchor" href="#qc-function-1"></a>
 </h3>
 <p>Coming soon.</p>
 </div>
 <div class="section level3">
-<h3 id="rna_atac">RNA_ATAC<a class="anchor" aria-label="anchor" href="#rna_atac"></a>
+<h3 id="atac">ATAC<a class="anchor" aria-label="anchor" href="#atac"></a>
 </h3>
-<p>Coming soon.</p>
+<p>All ATAC tabs require <code>"ATAC"</code> in <code>assays_selected</code> when running <code><a href="reference/prepShinyCellModular.html">prepShinyCellModular()</a></code>, since that is what creates <code>dir_inputs/ATAC/</code> (assumed, based on the <code>active_assay == "ATAC"</code> branch in prep).</p>
+<table class="table">
+<colgroup>
+<col width="16%">
+<col width="16%">
+<col width="35%">
+<col width="30%">
+</colgroup>
+<thead><tr>
+<th>Tab ID (<code>enabled_tabs</code>)</th>
+<th>Tab title</th>
+<th>What it shows</th>
+<th>Extra prep needed</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>cellinfo_cellinfo_atac</code></td>
+<td>CellInfo vs CellInfo (ATAC)</td>
+<td>2D embedding coloured by metadata, ATAC assay version</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+<tr>
+<td><code>cellinfo_peakaccess</code></td>
+<td>CellInfo vs PeakAccess</td>
+<td>2D embedding with peak accessibility overlay</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+<tr>
+<td><code>cellinfo3D_cellinfo3D_atac</code></td>
+<td>CellInfo3D vs CellInfo3D (ATAC)</td>
+<td>Interactive 3D embedding coloured by metadata, ATAC assay version</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>, <code>do_umap3d = TRUE</code> in prep</td>
+</tr>
+<tr>
+<td><code>cellinfo3D_peakaccess3D</code></td>
+<td>CellInfo3D vs PeakAccess3D</td>
+<td>Interactive 3D embedding with peak accessibility overlay</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>, <code>do_umap3d = TRUE</code> in prep</td>
+</tr>
+<tr>
+<td><code>peakcoex</code></td>
+<td>Peak Coaccessibility</td>
+<td>Coaccessibility of selected peaks across cells or groups</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+<tr>
+<td><code>violin_boxplot_atac</code></td>
+<td>Violin / BoxPlot (ATAC)</td>
+<td>Violin and boxplots for peak accessibility or metadata</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+<tr>
+<td><code>proportions_atac</code></td>
+<td>Cell Proportions (ATAC)</td>
+<td>Cell composition across groups, ATAC assay version</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+<tr>
+<td><code>bubble_heatmap_atac</code></td>
+<td>Bubble Plot / Heatmap (ATAC)</td>
+<td>Bubble plot and heatmap for peak sets across groups</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+<tr>
+<td><code>pseudobulk_atac</code></td>
+<td>Pseudobulk DE (ATAC)</td>
+<td>Pseudobulk aggregation and differential accessibility analysis</td>
+<td>
+<code>"ATAC"</code> in <code>assays_selected</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><code>track_plot.R</code> (coming soon)</p>
+</div>
+<div class="section level3">
+<h3 id="multi">MULTI<a class="anchor" aria-label="anchor" href="#multi"></a>
+</h3>
+<p>Tabs in this folder are not all <code>_multi</code> dataset-list variants, some are single-dataset ATAC-derived tabs that happen to live here (assumed, since <code>motif_plot</code> and <code>coverage_plot</code> don’t have <code>_multi</code> in their id and aren’t listed as <code>_multi</code> variants above).</p>
+<table class="table">
+<colgroup>
+<col width="19%">
+<col width="17%">
+<col width="39%">
+<col width="23%">
+</colgroup>
+<thead><tr>
+<th>Tab ID (<code>enabled_tabs</code>)</th>
+<th>Tab title</th>
+<th>What it shows</th>
+<th>Extra prep needed</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code>motif_plot</code></td>
+<td>Motif Plot</td>
+<td>Transcription factor motif sequence logos, with optional enrichment scores</td>
+<td>
+<code>sc1motifs.rds</code> and <code>sc1motifs_meta.parquet</code> in <code>dir_inputs/ATAC/</code> (written by prep when <code>do_motifs</code> finds a populated <code>@motifs</code> slot)</td>
+</tr>
+<tr>
+<td><code>coverage_plot</code></td>
+<td>Coverage Plot</td>
+<td>Genome browser style coverage tracks from ATAC fragments</td>
+<td>Fragment files copied to <code>dir_inputs/ATAC/fragments/</code> (<code>sc1fragmentpaths.rds</code>), supply <code>fragments_paths</code> in prep if auto-detection fails (assumed, based on <code>.extract_atac_static()</code>)</td>
+</tr>
+<tr>
+<td><code>cellinfo_geneexpr_multi</code></td>
+<td>CellInfo vs GeneExpr Multi</td>
+<td>Multi-dataset 2D embedding with gene expression overlay</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td><code>cellinfo3D_geneexpr3D_multi</code></td>
+<td>CellInfo3D vs GeneExpr3D Multi</td>
+<td>Multi-dataset interactive 3D embedding with gene expression overlay</td>
+<td>
+<code>do_umap3d = TRUE</code> in prep, per dataset</td>
+</tr>
+<tr>
+<td><code>genecoex_multi</code></td>
+<td>Gene Coexpression</td>
+<td>Multi-dataset coexpression of selected genes across cells or groups</td>
+<td>n/a</td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section level3">
 <h3 id="spatial">SPATIAL<a class="anchor" aria-label="anchor" href="#spatial"></a>
