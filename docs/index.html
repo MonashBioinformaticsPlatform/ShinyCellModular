@@ -34,7 +34,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">ShinyCellModular</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.59</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.68</span>
       </span>
     </div>
 
@@ -121,6 +121,7 @@
 <p>Single-cell apps rarely stay static once a lab starts using them: labels get reordered, axes get fixed, colours get matched to a figure, a new tab gets requested. If you’re running a ShinyCell-based app for more than one project, this will sound familiar: each of those small changes usually means touching a large, interconnected script. That is what <strong>ShinyCellModular</strong> is for: an architecture that lets us keep tailoring single-cell apps to individual researchers and projects, quickly and without waiting on upstream changes.</p>
 <p>Most ShinyCell-derived apps are one large, cross-referenced script: tabs share state and call into each other, so touching one thing risks breaking another. ShinyCellModular restructures this as a plugin system: every tab is a self-contained R file (UI + server + <code>register_tab()</code>), discovered automatically at build time from a directory listing, with no hard-coded catalogue to edit. Add a tab by dropping in a file; remove one without touching anything else; hand a tab to a team member without them needing to understand the rest of the app.</p>
 <p>That architecture is what lets us keep customising ShinyCellModular for our own researchers over time, rather than accumulating one-off patches that get harder to maintain with every request. We build most tabs ourselves, driven by real project needs, but the module structure is deliberately open: see <a href="https://monashbioinformaticsplatform.github.io/ShinyCellModular/articles/developer_guide.html">creating your own modules/tabs</a> if you want to build on it or adapt it for your own group.</p>
+<p><a href="https://deepwiki.com/MonashBioinformaticsPlatform/ShinyCellModular" class="external-link"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a></p>
 </div>
 <div class="section level2">
 <h2 id="what-it-does">What it does?<a class="anchor" aria-label="anchor" href="#what-it-does"></a>

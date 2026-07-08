@@ -16,6 +16,8 @@ Most ShinyCell-derived apps are one large, cross-referenced script: tabs share s
 
 That architecture is what lets us keep customising ShinyCellModular for our own researchers over time, rather than accumulating one-off patches that get harder to maintain with every request. We build most tabs ourselves, driven by real project needs, but the module structure is deliberately open: see [creating your own modules/tabs](https://monashbioinformaticsplatform.github.io/ShinyCellModular/articles/developer_guide.html) if you want to build on it or adapt it for your own group.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MonashBioinformaticsPlatform/ShinyCellModular)
+
 ## What it does? 
 
 **ShinyCellModular** is an R package, a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). It takes your [Seurat](https://satijalab.org/seurat/) object from single cell experiments and creates an interactive Shiny app to explore your data. Each module is a tab in the app, created individually and self-contained. **ShinyCellModular** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 and parquet access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise and to patch.

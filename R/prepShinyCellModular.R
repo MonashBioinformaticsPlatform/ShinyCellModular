@@ -527,7 +527,7 @@ prepShinyCellModular <- function(
       
       arrow::write_parquet(counts, file.path(tiles_dir, paste0(ch, ".parquet")))
       ncontigs<- ncontigs +1
-      .msg("  Saved tile counts for ", ch, " to tiles/", ch, ".parquet (", nrow(counts), " bin x cell entries).   Done", ncontigs, "of",  lenght(chrs))
+      .msg("  Saved tile counts for ", ch, " to tiles/", ch, ".parquet (", nrow(counts), " bin x cell entries).   Done ", ncontigs, " of ",  length(chrs))
     }
     
     .msg("Saved binned insertion counts as parquet (", length(chrs), " chromosomes, bin size ", bin_size, "bp)")
@@ -709,7 +709,11 @@ prepShinyCellModular <- function(
             next
           }
           red_name <- paste0(red, umap3d_name_suffix)
+          n_dimensions  <-  ncol(Embeddings(seurat_obj, red))
+          if(identical(n_dimensions,umap3d_dims)){umap3d_dims= umap3d_dims }else{umap3d_dims= 1:n_dimensions}
+          if (length(umap3d_dims) < 3) next
           .msg("  RunUMAP reduction=", red, " into ", red_name)
+          .msg(red, " with ", n_dimensions, "dimensions")
           suppressWarnings(
           seurat_obj <- Seurat::RunUMAP(
             seurat_obj,

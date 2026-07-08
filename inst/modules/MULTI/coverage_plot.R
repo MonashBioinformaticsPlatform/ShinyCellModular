@@ -196,7 +196,7 @@ sc_coverage_tiles <- function(tiles_dir, sc1meta_atac, group_col, chr, start, en
   do.call(rbind, result_list)
 }
 
-sc_plot_coverage <- function(cov_df, chr, start, end) {
+sc_plot_coverage <- function(cov_df, chr, start, end, base_size = 14) {
   if (is.null(cov_df) || nrow(cov_df) == 0)
     return(ggplot() + theme_void() +
              annotate("text", x = .5, y = .5, label = "No coverage data", colour = "grey50"))
@@ -230,10 +230,12 @@ sc_plot_coverage <- function(cov_df, chr, start, end) {
     scale_fill_manual(values = colors) +
     scale_x_continuous(limits = c(start, end), expand = c(0, 0),
                        labels = scales::comma) +
-    ylim(c(0, ymax)) +
+    # only show 0 and the max tick, default pretty breaks (0,1000,2000...) overlap
+    # once there are many facets (e.g. 13 clusters) and not enough vertical room per row
+    scale_y_continuous(limits = c(0, ymax), breaks = c(0, ymax)) +
     xlab(paste0(chr, " position (bp)")) +
     ylab(paste0("Normalized signal\n(range 0 - ", ymax, ")")) +
-    theme_classic(base_size = 14) +
+    theme_classic(base_size = base_size) +
     theme(
       legend.position    = "none",
       strip.background   = element_blank(),
@@ -245,7 +247,7 @@ sc_plot_coverage <- function(cov_df, chr, start, end) {
     )
 }
 
-sc_plot_peaks <- function(peaks, chr, start, end) {
+sc_plot_peaks <- function(peaks, chr, start, end, base_size = 14) {
   if (is.null(peaks)) return(NULL)
   sub <- as.data.frame(peaks[
     GenomicRanges::seqnames(peaks) == chr &
@@ -260,21 +262,19 @@ sc_plot_peaks <- function(peaks, chr, start, end) {
                  linewidth = 2, colour = "dimgrey") +
     scale_x_continuous(limits = c(start, end), expand = c(0, 0)) +
     xlab(NULL) + ylab("Peaks") +
-    theme_classic(base_size = 14) +
+    theme_classic(base_size = base_size) +
     theme(axis.text.y  = element_blank(), axis.ticks.y = element_blank(),
           axis.text.x  = element_blank(), axis.ticks.x = element_blank(),
           axis.line.x.bottom = element_blank())
 }
 
-sc_plot_links <- function(links, chr, start, end) {
+sc_plot_links <- function(links, chr, start, end, base_size = 14) {
   if (is.null(links) || length(links) == 0) return(NULL)
   sub <- as.data.frame(links[
     GenomicRanges::seqnames(links) == chr &
       GenomicRanges::start(links)   <= end  &
       GenomicRanges::end(links)     >= start
   ])
-  if (nrow(sub) == 0) return(NULL)
-  sub <- sub[sub$start >= start & sub$end <= end, ]
   if (nrow(sub) == 0) return(NULL)
   
   sub$group <- seq_len(nrow(sub))
@@ -292,13 +292,13 @@ sc_plot_links <- function(links, chr, start, end) {
                            limits = c(min_col, max(df$score)), n.breaks = 3) +
     scale_x_continuous(limits = c(start, end), expand = c(0, 0)) +
     xlab(NULL) + ylab("Links") +
-    theme_classic(base_size = 14) +
+    theme_classic(base_size = base_size) +
     theme(axis.text.y  = element_blank(), axis.ticks.y = element_blank(),
           axis.text.x  = element_blank(), axis.ticks.x = element_blank(),
           axis.line.x.bottom = element_blank())
 }
 
-sc_plot_annotation <- function(annotation, chr, start, end) {
+sc_plot_annotation <- function(annotation, chr, start, end, base_size = 14) {
   if (is.null(annotation)) return(NULL)
   
   region_gr <- GenomicRanges::GRanges(chr, IRanges::IRanges(start, end))
@@ -362,12 +362,12 @@ sc_plot_annotation <- function(annotation, chr, start, end) {
                        labels = scales::comma) +
     scale_y_continuous(limits = c(0.5, max(bodies$dodge) + 0.6)) +
     xlab(paste0(chr, " position (bp)")) + ylab("Genes") +
-    theme_classic(base_size = 14) +
+    theme_classic(base_size = base_size) +
     theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
           panel.grid = element_blank())
 }
 
-sc_plot_expression <- function(gene, sc1meta, sc1gene, h5_path, group_col) {
+sc_plot_expression <- function(gene, sc1meta, sc1gene, h5_path, group_col, base_size = 14) {
   if (is.null(gene) || !nzchar(gene) || !gene %in% names(sc1gene)) return(NULL)
   if (!file.exists(h5_path)) return(NULL)
   h5file <- hdf5r::H5File$new(h5_path, mode = "r")
@@ -376,12 +376,16 @@ sc_plot_expression <- function(gene, sc1meta, sc1gene, h5_path, group_col) {
   vals[vals < 0] <- 0
   df <- data.frame(val = vals, group = sc1meta[[group_col]], stringsAsFactors = FALSE)
   df <- df[!is.na(df$group), ]
+  # each facet should only know about its own group, otherwise facet_wrap keeps the
+  # discrete y-scale shared across all facets and reserves row space for every other
+  # group's level too, which is what was squeezing each violin down to a sliver
+  df$group <- droplevels(factor(df$group))
   ggplot(df, aes(x = val, y = group, fill = group)) +
     geom_violin(scale = "width", trim = TRUE, linewidth = 0.25) +
-    facet_wrap(~ group, ncol = 1, strip.position = "right") +
+    facet_wrap(~ group, ncol = 1, strip.position = "right", scales = "free_y") +
     scale_x_continuous(position = "bottom", limits = c(0, NA)) +
     xlab(gene) + ylab(NULL) +
-    theme_classic(base_size = 14) +
+    theme_classic(base_size = base_size) +
     theme(legend.position    = "none",
           strip.background   = element_blank(),
           strip.text.y       = element_blank(),
@@ -511,6 +515,9 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
         # actionButton(ns("sc1cov_plot_btn"), "Update plot", class = "btn btn-primary"),
         
         radioButtons(ns("sc1cov_psz"), "Plot size:",
+                     choices = c("Small", "Medium", "Large"), selected = "Medium", inline = TRUE),
+        
+        radioButtons(ns("sc1cov_fsz"), "Font size:",
                      choices = c("Small", "Medium", "Large"), selected = "Medium", inline = TRUE)
       ),
       
@@ -522,9 +529,9 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
         downloadButton(ns("sc1cov_png"), "Download PNG"),
         br(),
         div(style = "display:inline-block",
-            numericInput(ns("sc1cov_h"), "Height (in):", width = "120px", min = 2, max = 40, value = 12, step = 0.5)),
+            numericInput(ns("sc1cov_h"), "Height (in):", width = "120px", min = 2, max = 40, value = 8, step = 0.5)),
         div(style = "display:inline-block",
-            numericInput(ns("sc1cov_w"), "Width (in):",  width = "120px", min = 2, max = 40, value = 10, step = 0.5)),
+            numericInput(ns("sc1cov_w"), "Width (in):",  width = "120px", min = 2, max = 40, value = 14, step = 0.5)),
         br(), br(),
         # temporary debug output for fragment path troubleshooting
         h5("Current Plot: Log info"),
@@ -581,8 +588,23 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     if (!exists("pList", inherits = TRUE))
       pList <<- c(Small = "400px", Medium = "650px", Large = "900px")
     
+    # per-facet row height in px, used together with n_groups_val() below so the total
+    # plot height scales with how many groups (e.g. clusters) are being faceted, instead
+    # of squeezing everything into the fixed pList height meant for ~6 sample groups
+    if (!exists("rowPxList", inherits = TRUE))
+      rowPxList <<- c(Small = 22, Medium = 32, Large = 42)
+    
+    # font base_size passed to theme_classic() in every track function, Medium = 14
+    # keeps the old hardcoded default so nothing changes until the user touches the radio
+    if (!exists("sList", inherits = TRUE))
+      sList <<- c(Small = 10, Medium = 14, Large = 18)
+    
     # temporary debug output for fragment path troubleshooting
     debugTxt <- reactiveVal("")
+    
+    # number of groups (facet rows) in the current coverage/expression plot, updated
+    # inside plot_result() once cov_df is known, defaults to 1 before the first plot
+    n_groups_val <- reactiveVal(1L)
     
     # eventReactive gates the coverage computation behind the Plot button, so it only
     # runs once on load and then again whenever the user clicks Plot, instead of on
@@ -667,17 +689,22 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         debugTxt(dbg)
         message(dbg)
         
+        # drives the plot height scaling in sc1cov_oup.ui, falls back to 1 if there is
+        # no coverage data so the height calc below never sees a NULL/zero facet count
+        n_groups_val(if (is.null(cov_df)) 1L else length(unique(cov_df$group)))
+        
         shiny::incProgress(0.1, detail = "Building tracks")
         
         # temporary debug output for timing troubleshooting
         t_tracks0 <- Sys.time()
-        track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end)
-        track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end)           else NULL
-        track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end)           else NULL
-        track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end) else NULL
+        fsz <- sList[input$sc1cov_fsz %||% "Medium"]
+        track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz)
+        track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz)           else NULL
+        track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz)           else NULL
+        track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL
         track_expr  <- if (isTRUE(input$sc1cov_show_expr)) {
           g <- trimws(input$sc1cov_expr_gene %||% "")
-          if (nzchar(g)) sc_plot_expression(g, sc1meta, sc1gene, file.path(dir_inputs, "RNA", "sc1gexpr.h5"), grp) else NULL
+          if (nzchar(g)) sc_plot_expression(g, sc1meta, sc1gene, file.path(dir_inputs, "RNA", "sc1gexpr.h5"), grp, base_size = fsz) else NULL
         } else NULL
         
         combined <- sc_combine_tracks(
@@ -714,7 +741,23 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     })
     
     output$sc1cov_oup.ui <- renderUI({
-      plotOutput(ns("sc1cov_oup"), height = pList[input$sc1cov_psz])
+      # extra_px leaves room for the non-faceted tracks below the coverage/expression
+      # facets (peaks, links, annotation), height_px never goes below the plain pList
+      # size, it only grows past it once there are enough groups to need the room
+      extra_px  <- 250
+      base_px   <- as.numeric(gsub("px", "", pList[input$sc1cov_psz]))
+      min_height_px <- max(base_px, n_groups_val() * rowPxList[input$sc1cov_psz] + extra_px)
+      
+      # sc1cov_h / sc1cov_w are the same inches used by the PDF/PNG downloads, px_per_in
+      # converts them to screen pixels so the on-screen plot can be sized the same way
+      # instead of only reacting to the Small/Medium/Large radio
+      px_per_in <- 96
+      height_px <- max(min_height_px, (input$sc1cov_h %||% 0) * px_per_in)
+      width_px  <- (input$sc1cov_w %||% 0) * px_per_in
+      
+      plotOutput(ns("sc1cov_oup"),
+                 height = paste0(height_px, "px"),
+                 width  = if (width_px > 0) paste0(width_px, "px") else "100%")
     })
     
     # temporary debug output for fragment path troubleshooting
@@ -752,11 +795,12 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
             sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) NULL
         )
+        fsz <- sList[input$sc1cov_fsz %||% "Medium"]
         p <- sc_combine_tracks(
-          list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end),
-               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end) else NULL,
-               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end) else NULL,
-               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end) else NULL),
+          list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
+               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL),
           c(coverage = 10, peaks = 1, links = 2, annotation = 2)
         )
         ggsave(file, plot = p, device = "pdf", height = input$sc1cov_h, width = input$sc1cov_w, useDingbats = FALSE)
@@ -795,11 +839,12 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
             sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) NULL
         )
+        fsz <- sList[input$sc1cov_fsz %||% "Medium"]
         p <- sc_combine_tracks(
-          list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end),
-               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end) else NULL,
-               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end) else NULL,
-               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end) else NULL),
+          list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
+               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL),
           c(coverage = 10, peaks = 1, links = 2, annotation = 2)
         )
         ggsave(file, plot = p, device = "png", height = input$sc1cov_h, width = input$sc1cov_w)
