@@ -179,14 +179,6 @@ Coming soon.
 
 Coming soon.
 
-### SPATIAL
-
-Coming soon.
-
-### CropSeq/ PerturbSeq
-
-Coming soon.
-
 
 ***
 ## Legacy version
