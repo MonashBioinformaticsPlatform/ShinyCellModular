@@ -661,7 +661,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         dbg <- paste0(
           "Region: ", r$chr, ":", r$start, "-", r$end, "\n",
           "Group column: ", grp, "\n",
-          "Fragment files:\n", paste(frag_status, collapse = "\n"), "\n",
+          #"Fragment files:\n", paste(frag_status, collapse = "\n"), "\n",
           # temporary debug output for links troubleshooting
           "sc1links is.null: ", is.null(sc1links), "\n",
           "sc1links total length: ", if (is.null(sc1links)) NA else length(sc1links), "\n",

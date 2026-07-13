@@ -1,0 +1,74 @@
+---
+title: "Using an AI agent"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using an AI agent}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Using an AI agent to add features to existing tabs
+
+Because every tab is self-contained, an AI coding agent (Claude Code,
+Cursor, GitHub Copilot, ChatGPT, or any other agent capable of reading and
+editing files) can safely work on one tab without needing to understand
+the rest of the app; that's the whole point of the module architecture.
+The attached file, **`shinycellmodular-skill/SKILL.md`**, is written
+specifically to brief an AI agent on these conventions before it touches
+any code.
+
+**The skill file is conventions only, not the codebase.** It tells an
+agent the structure, naming rules, and constraints to follow; it does not
+give the agent the actual repository. The agent still needs real access to
+the code it's meant to change (and, for the minimum-diff rule to mean
+anything, the other files it's meant to leave alone).
+
+## How to use it
+
+The mechanics differ by tool, but the requirement is the same everywhere:
+the agent needs both the conventions in `SKILL.md` and real access to the
+repository files, not one without the other.
+
+- **Agents that work directly on a local checkout** (Claude Code, Cursor,
+  and similar tools): place `SKILL.md` wherever that tool looks for
+  project-level instructions (for Claude Code, `.claude/skills/` at the
+  repo root, or `~/.claude/skills/` for a personal, cross-project copy),
+  and run the agent from inside a checkout of the repo. It then has the
+  full codebase on disk, so the skill file only adds the conventions
+  layer on top; it can genuinely see, and avoid touching, other modules.
+- **Chat-based tools with file upload or project knowledge** (a Claude
+  Project, Cowork, a custom GPT, etc.): uploading `SKILL.md` alone is not
+  enough. Also attach the module file you want changed (and, ideally, the
+  `inst/modules/` folder as a whole), or point the agent at the repo
+  directly: `https://github.com/MonashBioinformaticsPlatform/ShinyCellModular`.
+  Without that, an instruction like "don't touch any other module" is
+  meaningless since the agent never had those files in front of it to
+  begin with.
+- **Any other agent**: paste `SKILL.md` in as a system/context message, and
+  make sure the agent has read or fetch access to the actual files it's
+  editing, the same way you would for a human contributor working from
+  written conventions alone.
+
+## A good request looks like
+
+> "Using the ShinyCellModular conventions in SKILL.md, add a log-scale
+> toggle to the attached `violin_boxplot.R` module."
+
+The skill file tells the agent: the exact structure to preserve, which
+server arguments are available, the naming conventions, and, critically,
+the **minimum-diff rule**: change only what was asked, don't refactor
+working code, don't touch `useShinyCellModular.R`, and don't rename
+existing functions or arguments. That rule only holds if the agent
+actually has the surrounding codebase available to potentially touch; if
+it was only ever given one file, there's nothing to "not touch" and the
+constraint is doing no real work.
+
+## What to check before merging an AI-assisted change
+
+1. Did it touch only the one module file (or `prepShinyCellModular.R` if
+   the feature needs a new prep flag)?
+2. Does `register_tab()` still match the filename and existing `id`?
+3. Did it preserve existing message/warning wording, or only add new
+   messages in the same terse style?
+4. Test it in isolation: `useShinyCellModular(data_type = "<type>",
+   enabled_tabs = "<tab_id>", ...)`.

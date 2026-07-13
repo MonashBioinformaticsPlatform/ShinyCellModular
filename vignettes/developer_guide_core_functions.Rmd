@@ -1,0 +1,133 @@
+---
+title: "Core functions reference"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Core functions reference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Core functions reference
+
+ShinyCellModular is built around four functions. Three you call yourself;
+one (`register_tab()`) you call *inside* a module file. If you're adding a
+new tab, start with [Adding a new tab](developer_guide_new_tab.html)
+instead — this page is for when you need more detail than the quickstart
+covers.
+
+## `prepShinyCellModular()`
+
+Takes a Seurat object and writes everything a module might need to disk:
+config tables, metadata, the HDF5 count matrix, marker genes, 3D reductions,
+and (for multiome/ATAC) fragment paths and peak links.
+
+```r
+prepShinyCellModular(
+  seurat_rds      = "seurat_object.rds",   # or seurat_obj = <object in memory>
+  out_dir         = "testing_data_RNA",
+  assays_selected = "RNA",
+  do_umap3d       = TRUE,   # writes a 3D reduction, needed by cellinfo3D tabs
+  do_markers      = TRUE    # writes markergenes_lists.parquet, needed by marker tabs
+)
+```
+
+If a tab you're adding or extending needs extra files beyond what prep
+already writes, drop those files in `out_dir` where the tab can find them
+(alongside `sc1conf.rds`, `sc1counts.h5`, etc.), and add the code to read
+them in the module's server function. Further changes to
+`prepShinyCellModular()` itself can be considered later if you want that
+file-generation step automated rather than dropped in manually.
+
+## `useShinyCellModular()`
+
+Generates the actual Shiny app: writes `app.R` and copies the selected
+modules into a `modules/` folder next to it.
+
+```r
+useShinyCellModular(
+  out_dir           = "testing_data/",
+  data_type         = "RNA",
+  enabled_tabs      = c("cellinfo_cellinfo", "violin_boxplot", "pseudobulk"),
+  overwrite_modules = TRUE,   # replaces modules/ entirely, see warning below
+  app_title         = "Testing"
+)
+```
+
+- `data_type` selects which module folder to pull from. This isn't a fixed
+  list: `useShinyCellModular()` checks the folder structure under
+  `inst/modules/` recursively, so check what folders currently exist there
+  rather than assuming the ones shown below. You can add your own
+  `data_type` folder simply by creating it.
+- `enabled_tabs` is optional; omit it to include every available tab for
+  that data type, or list specific tab ids if you want a mix of tabs from
+  across several data types.
+- **`overwrite_modules = TRUE` replaces the whole `modules/` folder.** If
+  you've hand-edited a copied module in place, that edit is gone. Either
+  keep `overwrite_modules = FALSE` once you've started customising a
+  deployed app, or make your changes in the package source
+  (`inst/modules/`) instead of the generated copy, so regenerating the app
+  doesn't lose them.
+
+You never need to touch `useShinyCellModular.R` itself to add a tab; it
+discovers modules by listing the `data_type` folder at run time. Dropping a
+correctly-structured file into that folder is enough for it to show up.
+
+## `templateShinyCellModular()`
+
+Scaffolds a new module/tab file: writes a skeleton `.R` following the
+standard module structure (Functions / UI / Server / Registration) into
+the right `modules/<data_type>/` subfolder, already named and registered,
+so a new tab can be built by filling in placeholders instead of
+copy-pasting an existing module by hand. See
+[Adding a new tab](developer_guide_new_tab.html) for the full walkthrough.
+
+```r
+templateShinyCellModular(
+  id      = "my_new_tab",
+  title   = "My New Tab",
+  author  = "Your Name",
+  contact = "your.email@monash.edu"
+)
+```
+
+Like `useShinyCellModular()`, `data_type` is matched against whatever
+folders actually exist under `modules/`, discovered recursively at call
+time — not a fixed list.
+
+## `register_tab()`
+
+Called at the bottom of every module file. It's how a tab announces itself
+to `useShinyCellModular()`, and there is no central list of tabs to edit.
+
+```r
+register_tab(
+  id          = "violin_boxplot",
+  title       = "Violin / BoxPlot",
+  ui          = violin_boxplot_ui,
+  server      = violin_boxplot_server,
+  author      = "Your Name",
+  description = "Violin and boxplots for gene expression or metadata",
+  version     = "1.0",
+  date        = "Jul 2026",
+  source      = "internal",
+  contact     = "your.email@monash.edu"
+)
+```
+
+`id` must match the filename (without `.R`): this is what `enabled_tabs`
+refers to and how the module is found on disk.
+
+## Where module files go
+
+```
+inst/modules/
+└── <data_type>/   ← e.g. RNA, or any folder you create yourself
+```
+
+One file per tab, named `<tab_id>.R`, placed in the folder matching the
+data type it applies to. The filename minus `.R` **is** the tab id: it's
+what you pass to `enabled_tabs` and what `register_tab(id = ...)` must
+match exactly.
+
+That's the whole placement rule. Nothing else needs to be registered,
+imported, or listed anywhere else in the package.

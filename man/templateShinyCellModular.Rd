@@ -23,8 +23,10 @@ Must be unique across \code{modules/}. Required.}
 
 \item{title}{Human readable title shown on the tab. Required.}
 
-\item{data_type}{Which \code{modules/} subfolder to write into: \code{'RNA'},
-\code{'RNA_ATAC'} or \code{'SPATIAL'}. Default: \code{'RNA'}.}
+\item{data_type}{Which \code{modules/} subfolder to write into (e.g.
+\code{'RNA'}). Matched against whatever folders actually exist under
+\code{modules/}, discovered recursively at call time — not a fixed
+list. Default: \code{'RNA'}.}
 
 \item{multi}{Write a \code{_multi} variant. \code{_multi} is appended to
 \code{id} for the filename, function names and registered tab id, per the

@@ -1,0 +1,117 @@
+---
+title: "Adding a new tab"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Adding a new tab}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Adding a new tab
+
+## 1. Scaffold the file with `templateShinyCellModular()`
+
+```r
+templateShinyCellModular(
+  id          = "my_new_tab",   # becomes the filename and the <id>_ui / <id>_server prefix
+  title       = "My New Tab",
+  data_type   = "RNA",          # which modules/ subfolder to write into
+  multi       = FALSE,          # TRUE to write a _multi variant instead
+  description = "Short description of this tab",
+  author      = "Your Name",
+  contact     = "your.email@monash.edu"
+)
+```
+
+This writes `<id>.R` into `inst/modules/<data_type>/`, with:
+
+- correctly namespaced `<id>_ui` / `<id>_server` functions
+- a `register_tab()` call at the bottom, already filled in
+
+`id`, `title`, `author`, and `contact` are required — the function stops
+with a usage example if any are missing. Set `overwrite = TRUE` to replace
+an existing file with the same name (there's no backup step, so
+uncommitted edits in that file are lost).
+
+`data_type` isn't a fixed list: it's matched against whatever folders
+actually exist under `inst/modules/`, discovered recursively at call
+time. Check `inst/modules/` yourself to see current data types, or create
+a new folder there if you're adding one — `templateShinyCellModular()` and
+`useShinyCellModular()` both pick it up automatically.
+
+The only work left is filling in the UI/server logic between the section
+banners — see the shape below for what goes where.
+
+## 2. The module shape
+
+Every module — whether hand-written or from the template — follows the
+same layout:
+
+```r
+# Short description of what this tab does
+# id     = "<tab_id>"
+# title  = "<Human Readable Title>"
+
+############################### Functions ###############################
+# helper / plot functions; prefer an sc_* prefix for shared-looking helpers
+
+############################### UI #########################################
+<tab_id>_ui <- function(id, sc1conf, sc1def, ...) {
+  ns <- NS(id)
+  # sidebarLayout + sidebarPanel / mainPanel is the standard pattern
+}
+
+############################### Server ######################################
+<tab_id>_server <- function(id, sc1conf, sc1def, sc1meta, sc1gene, inpH5, dir_inputs, ...) {
+  moduleServer(id, function(input, output, session) {
+    # reactive logic, renderPlot, renderDT, downloadHandler …
+  })
+}
+
+############################### Registration ################################
+register_tab(id = "<tab_id>", title = "<Human Readable Title>", ui = <tab_id>_ui,
+             server = <tab_id>_server, author = "...", description = "...",
+             version = "1.0", date = "Mon YYYY", source = "...", contact = "...")
+```
+
+`id` must match the filename (without `.R`) — it's what `enabled_tabs`
+refers to and how the module is found on disk.
+
+Standard server arguments (all tabs get these; ATAC tabs additionally get
+`sc1conf_atac`, `sc1meta_atac`, `sc1gene_atac`, `inpH5_atac`):
+
+| Argument | Contents |
+|---|---|
+| `sc1conf` | Column metadata table (`ID`, `UI`, `fCL`, `grp`, `fInt`, `fShow`) |
+| `sc1def` | Default UI selections |
+| `sc1meta` | Per-cell metadata |
+| `sc1gene` | Gene name → row index in the H5 file |
+| `inpH5` | Path to `sc1counts.h5` |
+| `dir_inputs` | Directory containing all prep output |
+
+`sctheme()`, `sList`, and `cList` are defined in the generated `app.R` and
+available to every module at runtime for consistent styling.
+
+Multi-dataset variants live alongside the single-dataset version in the
+same folder: `bubble_heatmap.R` and `bubble_heatmap_multi.R` sit side by
+side in `RNA/`.
+
+## 3. If the tab needs new prep output
+
+If a tab needs a file beyond what `prepShinyCellModular()` already writes,
+add the writing logic to `prepShinyCellModular.R` under a clearly labelled
+section and a `do_*` flag, so users can opt in without slowing down prep
+for tabs they don't use. See
+[Core functions reference](developer_guide_core_functions.html) for what
+prep currently writes.
+
+## 4. Test it
+
+```r
+useShinyCellModular(data_type = "RNA", enabled_tabs = "my_new_tab", out_dir = "testing_data/")
+```
+
+`enabled_tabs` can be a single id or a vector mixing tabs from several
+data types. Nothing else needs to be registered, imported, or listed
+anywhere else in the package — `useShinyCellModular()` discovers modules by
+listing the `data_type` folder at run time.

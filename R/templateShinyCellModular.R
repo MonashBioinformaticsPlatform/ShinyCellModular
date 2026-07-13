@@ -9,8 +9,10 @@
 #'   for the generated function names (\code{<id>_ui}, \code{<id>_server}).
 #'   Must be unique across \code{modules/}. Required.
 #' @param title Human readable title shown on the tab. Required.
-#' @param data_type Which \code{modules/} subfolder to write into: \code{'RNA'},
-#'   \code{'RNA_ATAC'} or \code{'SPATIAL'}. Default: \code{'RNA'}.
+#' @param data_type Which \code{modules/} subfolder to write into (e.g.
+#'   \code{'RNA'}). Matched against whatever folders actually exist under
+#'   \code{modules/}, discovered recursively at call time — not a fixed
+#'   list. Default: \code{'RNA'}.
 #' @param multi Write a \code{_multi} variant. \code{_multi} is appended to
 #'   \code{id} for the filename, function names and registered tab id, per the
 #'   existing multi-dataset naming convention. Default: \code{FALSE}.
@@ -66,8 +68,6 @@ templateShinyCellModular <- function(
     stop("contact is missing. Please provide your contact email, e.g. contact = 'your.email@monash.edu'.")
   }
 
-  data_type <- match.arg(data_type, choices = c("RNA", "RNA_ATAC", "SPATIAL"))
-
   if (is.null(shinycellmodular.dir.src) || !nzchar(shinycellmodular.dir.src)) {
     # try installed package first, then fall back to find.package() which also works for load_all()
     pkg_dir <- tryCatch(find.package("ShinyCellModular"), error = function(e) "")
@@ -85,6 +85,12 @@ templateShinyCellModular <- function(
     message("Auto-detected shinycellmodular.dir.src: ", shinycellmodular.dir.src)
   }
   shinycellmodular.dir.src <- normalizePath(shinycellmodular.dir.src, mustWork = TRUE)
+
+  # data_type choices are discovered from the folders actually present under
+  # modules/, recursively, matching how useShinyCellModular() validates it —
+  # nothing here is hard-coded to a fixed set of data types.
+  valid_data_types <- list.dirs(file.path(shinycellmodular.dir.src, "modules"), full.names = FALSE, recursive = FALSE)
+  data_type <- match.arg(data_type, choices = valid_data_types)
 
   # _multi is baked into the id itself, matching the existing naming convention
   # (e.g. bubble_heatmap.R -> bubble_heatmap_multi.R, id = "bubble_heatmap_multi")
