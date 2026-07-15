@@ -13,7 +13,8 @@ useShinyCellModular(
   overwrite_modules = FALSE,
   disable_ui_server = TRUE,
   app_title = NULL,
-  navbar_color = "#00BDC9"
+  navbar_color = "#00BDC9",
+  css_file = NULL
 )
 }
 \arguments{
@@ -36,8 +37,13 @@ presets. Default: \code{NULL} (uses all tabs for \code{data_type}).}
 
 \item{app_title}{Title shown in the app navbar. Required.}
 
-\item{navbar_color}{Navbar background colour (hex), also used for buttons/hover
-states in the generated \code{app.R}. Default: \code{"#007BA7"}.}
+\item{navbar_color}{Navbar/button background colour (hex). Ignored if
+\code{css_file} is set. Default: \code{"#00BDC9"}.}
+
+\item{css_file}{Path to a custom \code{.css} file, read and used verbatim
+in place of the built-in navbar/button CSS, takes priority over
+\code{navbar_color}. Default \code{NULL}: not used, a CSS block is built
+inline from \code{navbar_color} instead, no file needed.}
 }
 \value{
 Invisibly returns \code{NULL}. Writes \code{app.R} and \code{modules/} to \code{out_dir}.
@@ -97,7 +103,7 @@ module's \code{author} / \code{description} / \code{version} / \code{date} /
 module's server function actually declares (matched against
 \code{formals()}), so modules only need to list the globals they use.
 \item Substitutes placeholders (\code{__APP_TITLE__}, \code{__DIR_INPUTS__},
-\code{__ASSAYS__}, \code{__ENABLED_TABS__}, \code{__NAVBAR_COLOR__},
+\code{__ASSAYS__}, \code{__ENABLED_TABS__}, \code{__NAVBAR_CSS__},
 \code{__SCM_VERSION__}) with \code{gsub(..., fixed = TRUE)} and writes the
 result to \code{out_dir/app.R}.
 }

@@ -189,3 +189,10 @@ The pre-package version of ShinyCellModular is preserved in the [`legacy` branch
 ## Acknowledgement
 
 We'd love to hear if ShinyCellModular is useful to you outside MGBP. If you use it in your work or build new modules on top of it, please let us know and acknowledge it in your publications; this helps us track its impact and justify continued development.
+
+***
+## AI assistance
+
+The package architecture, and the building and testing of its modules, is the work of Laura Perlaza-Jimenez. Claude (Anthropic) assisted with documentation and the `Dockerfile` and GitHub Actions workflow used to build and publish the ShinyProxy deployment image.
+
+AI assistance is recommended for adding new functionalities and modules, please use the guide provided in [Using an AI agent](https://monashbioinformaticsplatform.github.io/ShinyCellModular/articles/developer_guide_ai_agents.html).

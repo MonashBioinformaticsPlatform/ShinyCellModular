@@ -44,3 +44,10 @@ reference:
   - prepShinyCellModular
   - useShinyCellModular
   - templateShinyCellModular
+
+- title: Deployment
+  desc: >
+    Package an existing, already-tested app folder into a portable, deployable
+    bundle.
+  contents:
+  - makeShinyCellModularPortable

@@ -41,8 +41,12 @@ scm_data_type_doc <- function() {
 #' @param overwrite_modules Remove and replace existing \code{modules/} folder. Default: \code{FALSE}.
 #' @param disable_ui_server Rename legacy \code{ui.R} and \code{server.R} to \code{.bak}. Default: \code{TRUE}.
 #' @param app_title Title shown in the app navbar. Required.
-#' @param navbar_color Navbar background colour (hex), also used for buttons/hover
-#'   states in the generated \code{app.R}. Default: \code{"#007BA7"}.
+#' @param navbar_color Navbar/button background colour (hex). Ignored if
+#'   \code{css_file} is set. Default: \code{"#00BDC9"}.
+#' @param css_file Path to a custom \code{.css} file, read and used verbatim
+#'   in place of the built-in navbar/button CSS, takes priority over
+#'   \code{navbar_color}. Default \code{NULL}: not used, a CSS block is built
+#'   inline from \code{navbar_color} instead, no file needed.
 #'
 #' @return Invisibly returns \code{NULL}. Writes \code{app.R} and \code{modules/} to \code{out_dir}.
 #'
@@ -96,7 +100,7 @@ scm_data_type_doc <- function() {
 #'         module's server function actually declares (matched against
 #'         \code{formals()}), so modules only need to list the globals they use.
 #'       \item Substitutes placeholders (\code{__APP_TITLE__}, \code{__DIR_INPUTS__},
-#'         \code{__ASSAYS__}, \code{__ENABLED_TABS__}, \code{__NAVBAR_COLOR__},
+#'         \code{__ASSAYS__}, \code{__ENABLED_TABS__}, \code{__NAVBAR_CSS__},
 #'         \code{__SCM_VERSION__}) with \code{gsub(..., fixed = TRUE)} and writes the
 #'         result to \code{out_dir/app.R}.
 #'     }
@@ -139,8 +143,9 @@ useShinyCellModular <- function(
     overwrite_modules = FALSE, # overwrite modules
     disable_ui_server = TRUE, # this disables the existing ui.R and server.r
     app_title=NULL,
-    navbar_color = "#00BDC9" # navbar background colour
-    
+    navbar_color = "#00BDC9", # navbar/button background colour, ignored if css_file is set
+    css_file = NULL # path to a custom .css file, read verbatim, takes priority over navbar_color
+
 ) {
   
   ###########################################################################
@@ -415,6 +420,10 @@ sctheme <- function(base_size = 24, XYval = TRUE, Xang = 0, XjusH = 0.5){
  
 app_title <- "__APP_TITLE__"
 
+navbar_css <- "__NAVBAR_CSS__"
+
+shinyCellModularVersion <- "__SCM_VERSION__"
+
 dir_inputs <- "__DIR_INPUTS__/"
 
 if (file.exists(file.path(dir_inputs,"RNA"))) {
@@ -612,7 +621,7 @@ tab_panels <- lapply(tab_ids, function(k) {
  ui <- fluidPage( 
       tags$head(
         tags$style(HTML(".shiny-output-error-validation {color: red; font-weight: bold;}")),
-        tags$style(HTML(".navbar-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;} .navbar{min-height:36px;font-family:Helvetica,Arial,sans-serif;} .navbar-default .navbar-nav>li>a{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;letter-spacing:0.3px;border-radius:4px;transition:background-color 0.15s ease;} .navbar-default .navbar-nav>li>a:hover{background-color:rgba(255,255,255,0.15);} .navbar-default .navbar-brand{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;letter-spacing:0.3px;border-right:1px solid rgba(255,255,255,0.3);margin-right:4px;} .navbar-collapse{padding-top:0;padding-bottom:0;} .btn-default{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;border-radius:6px;font-weight:bold;transition:filter 0.15s ease;} .btn-default:hover,.btn-default:focus,.btn-default:active{background-color:__NAVBAR_COLOR__;border-color:__NAVBAR_COLOR__;color:#fff;filter:brightness(0.92);}"))
+        tags$style(HTML(navbar_css))
 
     ),
       do.call(navbarPage, c(list(title = app_title), tab_panels)),
@@ -627,7 +636,7 @@ tags$p(
       target = "_blank"
     ),
     paste0(
-      " v__SCM_VERSION__",
+      " v", shinyCellModularVersion,
       ": a modular Shiny framework for single-cell data exploration developed by the ",
       "Monash Genomics and Bioinformatics Platform (MGBP), extending the ShinyCell package"
     )
@@ -681,11 +690,36 @@ shinyApp(ui, server)
 #app_modules <- sprintf(template_app,app_title, dir_inputs, assays_str, enabled_tabs_str)
 shinyCellModularVersion<-packageVersion("ShinyCellModular")
 
+# navbar_css lands in app.R as a single real variable (see template below), so it
+# can be read later by sourcing app.R rather than regex-matching a literal hex
+# colour buried inside a CSS string
+if (!is.null(css_file)) {
+  if (!file.exists(css_file)) {
+    stop("css_file does not exist: ", css_file, call. = FALSE)
+  }
+  navbar_css <- paste(readLines(css_file, warn = FALSE), collapse = " ")
+  # css_file content is substituted into a double-quoted string literal in app.R
+  # (fixed = TRUE gsub); a literal " character in the CSS would break the
+  # generated file. Not a concern for normal CSS using hex colours and single
+  # quotes for font names.
+} else {
+  navbar_css <- paste0(
+    ".navbar-default{background-color:", navbar_color, ";border-color:", navbar_color, ";} ",
+    ".navbar{min-height:36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;} ",
+    ".navbar-default .navbar-nav>li>a{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;letter-spacing:0.3px;border-radius:8px;transition:background-color 0.15s ease;} ",
+    ".navbar-default .navbar-nav>li>a:hover{background-color:rgba(255,255,255,0.12);} ",
+    ".navbar-default .navbar-brand{color:#fff;padding-top:8px;padding-bottom:8px;font-size:13px;font-weight:bold;letter-spacing:0.3px;border-right:1px solid rgba(255,255,255,0.3);margin-right:4px;} ",
+    ".navbar-collapse{padding-top:0;padding-bottom:0;} ",
+    ".btn-default{background-color:", navbar_color, ";border-color:", navbar_color, ";color:#fff;border-radius:8px;font-weight:bold;transition:filter 0.15s ease;} ",
+    ".btn-default:hover,.btn-default:focus,.btn-default:active{background-color:", navbar_color, ";border-color:", navbar_color, ";color:#fff;filter:brightness(0.90);}"
+  )
+}
+
 template_app <- gsub("__APP_TITLE__",    app_title,        template_app, fixed = TRUE)
 template_app <- gsub("__DIR_INPUTS__",   dir_inputs,       template_app, fixed = TRUE)
 template_app <- gsub("__ASSAYS__",       assays_str,       template_app, fixed = TRUE)
 template_app <- gsub("__ENABLED_TABS__", enabled_tabs_str, template_app, fixed = TRUE)
-template_app <- gsub("__NAVBAR_COLOR__", navbar_color, template_app, fixed = TRUE)
+template_app <- gsub("__NAVBAR_CSS__",   navbar_css,       template_app, fixed = TRUE)
 template_app <- gsub("__SCM_VERSION__", shinyCellModularVersion, template_app, fixed = TRUE)
 
 
