@@ -18,7 +18,7 @@ ready-to-run app.R with the selected module tabs into out_dir."><!-- mathjax -->
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">ShinyCellModular</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.69</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.1.73</span>
       </span>
     </div>
 
@@ -92,7 +92,8 @@ ready-to-run <code>app.R</code> with the selected module tabs into <code>out_dir
 <span>  overwrite_modules <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  disable_ui_server <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  app_title <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  navbar_color <span class="op">=</span> <span class="st">"#00BDC9"</span></span>
+<span>  navbar_color <span class="op">=</span> <span class="st">"#00BDC9"</span>,</span>
+<span>  css_file <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -136,8 +137,15 @@ presets. Default: <code>NULL</code> (uses all tabs for <code>data_type</code>).<
 
 
 <dt id="arg-navbar-color">navbar_color<a class="anchor" aria-label="anchor" href="#arg-navbar-color"></a></dt>
-<dd><p>Navbar background colour (hex), also used for buttons/hover
-states in the generated <code>app.R</code>. Default: <code>"#007BA7"</code>.</p></dd>
+<dd><p>Navbar/button background colour (hex). Ignored if
+<code>css_file</code> is set. Default: <code>"#00BDC9"</code>.</p></dd>
+
+
+<dt id="arg-css-file">css_file<a class="anchor" aria-label="anchor" href="#arg-css-file"></a></dt>
+<dd><p>Path to a custom <code>.css</code> file, read and used verbatim
+in place of the built-in navbar/button CSS, takes priority over
+<code>navbar_color</code>. Default <code>NULL</code>: not used, a CSS block is built
+inline from <code>navbar_color</code> instead, no file needed.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -192,7 +200,7 @@ module's <code>author</code> / <code>description</code> / <code>version</code> /
 module's server function actually declares (matched against
 <code><a href="https://rdrr.io/r/base/formals.html" class="external-link">formals()</a></code>), so modules only need to list the globals they use.</p></li>
 <li><p>Substitutes placeholders (<code>__APP_TITLE__</code>, <code>__DIR_INPUTS__</code>,
-<code>__ASSAYS__</code>, <code>__ENABLED_TABS__</code>, <code>__NAVBAR_COLOR__</code>,
+<code>__ASSAYS__</code>, <code>__ENABLED_TABS__</code>, <code>__NAVBAR_CSS__</code>,
 <code>__SCM_VERSION__</code>) with <code>gsub(..., fixed = TRUE)</code> and writes the
 result to <code>out_dir/app.R</code>.</p></li>
 </ul></li>
