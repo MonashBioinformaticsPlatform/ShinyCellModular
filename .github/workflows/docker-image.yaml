@@ -38,7 +38,8 @@ jobs:
       - name: Compute tags
         id: tags
         run: |
-          TAGS="$IMAGE:latest"$'\n'"$IMAGE:$GITHUB_SHA"
+          PKG_VERSION=$(grep '^Version:' DESCRIPTION | head -1 | sed 's/^Version:[[:space:]]*//')
+          TAGS="$IMAGE:latest"$'\n'"$IMAGE:$GITHUB_SHA"$'\n'"$IMAGE:$PKG_VERSION"
           if [ -n "${{ github.event.inputs.tag }}" ]; then
             TAGS="$TAGS"$'\n'"$IMAGE:${{ github.event.inputs.tag }}"
           fi

@@ -22,9 +22,6 @@ That architecture is what lets us keep customising ShinyCellModular for our own 
 
 **ShinyCellModular** is an R package, a modular version of [ShinyCell](https://github.com/SGDDNB/ShinyCell) developed at the Monash Genomics and Bioinformatics Platform (MGBP). It takes your [Seurat](https://satijalab.org/seurat/) object from single cell experiments and creates an interactive Shiny app to explore your data. Each module is a tab in the app, created individually and self-contained. **ShinyCellModular** supports large scRNAseq and multimodal datasets with fast on-demand HDF5 and parquet access, extended visualisations, improved filtering, and publication-ready plots. Its modular structure makes it flexible, scalable, and easy to customise and to patch.
 
-
-
-
 ## Features
 
 - Modular UI and server structure
@@ -103,82 +100,9 @@ useShinyCellModular(
 ***
 ## Available tabs
 
-### RNA
+Tabs are organised by data type — RNA, ATAC, MULTI (multi-dataset and cross-modal), with SPATIAL and CropSeq/PerturbSeq coming soon. Each tab is enabled by passing its ID to `enabled_tabs` in `useShinyCellModular()`.
 
-| Tab ID (`enabled_tabs`)   | Tab title              | What it shows                                         | Extra prep needed             |
-|---------------------------|------------------------|-------------------------------------------------------|-------------------------------|
-| `cellinfo_cellinfo`       | CellInfo vs CellInfo   | 2D embedding coloured by metadata                     | n/a                          |
-| `cellinfo_geneexpr`       | CellInfo vs GeneExpr   | 2D embedding with gene expression overlay             | n/a                          |
-| `cellinfo3D_cellinfo3D`   | CellInfo3D             | Interactive 3D embedding coloured by metadata         | `do_umap3d = TRUE` in prep    |
-| `cellinfo3D_geneexpr3D`   | CellInfo3D vs GeneExpr | Interactive 3D embedding with gene expression overlay | `do_umap3d = TRUE` in prep    |
-| `genecoex`                | Gene Coexpression      | Coexpression of selected genes across cells or groups | n/a                          |
-| `violin_boxplot`          | Violin / BoxPlot       | Violin and boxplots for gene expression or metadata   | n/a                          |
-| `proportions`             | Cell Proportions       | Cell composition across groups                        | n/a                          |
-| `bubble_heatmap`          | Bubble Plot / Heatmap  | Bubble plot and heatmap for gene sets across groups   | n/a                          |
-| `pseudobulk`              | Pseudobulk DE          | Pseudobulk aggregation and differential expression    | `do_counts_h5 = TRUE` in prep |
-
-### QC function
-Coming soon.
-
-## Available tabs
-
-### RNA
-
-| Tab ID (`enabled_tabs`)   | Tab title              | What it shows                                         | Extra prep needed             | Multi-dataset variant (`_multi`) |
-|---------------------------|------------------------|-------------------------------------------------------|-------------------------------|-----------------------------------|
-| `cellinfo_cellinfo`       | CellInfo vs CellInfo   | 2D embedding coloured by metadata                     | n/a                          | n/a                               |
-| `cellinfo_geneexpr`       | CellInfo vs GeneExpr   | 2D embedding with gene expression overlay             | n/a                          | `cellinfo_geneexpr_multi`         |
-| `cellinfo3D_cellinfo3D`   | CellInfo3D             | Interactive 3D embedding coloured by metadata         | `do_umap3d = TRUE` in prep    | n/a                               |
-| `cellinfo3D_geneexpr3D`   | CellInfo3D vs GeneExpr | Interactive 3D embedding with gene expression overlay | `do_umap3d = TRUE` in prep    | `cellinfo3D_geneexpr3D_multi`     |
-| `genecoex`                | Gene Coexpression      | Coexpression of selected genes across cells or groups | n/a                          | `genecoex_multi`                  |
-| `violin_boxplot`          | Violin / BoxPlot       | Violin and boxplots for gene expression or metadata   | n/a                          | n/a                               |
-| `proportions`             | Cell Proportions       | Cell composition across groups                        | n/a                          | n/a                               |
-| `bubble_heatmap`          | Bubble Plot / Heatmap  | Bubble plot and heatmap for gene sets across groups   | n/a                          | n/a                               |
-| `pseudobulk`              | Pseudobulk DE          | Pseudobulk aggregation and differential expression    | `do_counts_h5 = TRUE` in prep | n/a                               |
-| `genexpr_waffle`          | Gene Expression Waffle Plot | Waffle plot alternative to bubble plot / heatmap for a small gene list | n/a | n/a |
-| `split_violin`            | Split Violin Plot      | Two groups compared side by side within one violin shape | n/a                        | n/a                               |
-
-### QC function
-Coming soon.
-
-### ATAC
-
-All ATAC tabs require `"ATAC"` in `assays_selected` when running `prepShinyCellModular()`, since that is what creates `dir_inputs/ATAC/` (assumed, based on the `active_assay == "ATAC"` branch in prep).
-
-| Tab ID (`enabled_tabs`)      | Tab title                    | What it shows                                                  | Extra prep needed                                   |
-|-------------------------------|-------------------------------|------------------------------------------------------------------|---------------------------------------------------------|
-| `cellinfo_cellinfo_atac`      | CellInfo vs CellInfo (ATAC)   | 2D embedding coloured by metadata, ATAC assay version            | `"ATAC"` in `assays_selected`                            |
-| `cellinfo_peakaccess`         | CellInfo vs PeakAccess        | 2D embedding with peak accessibility overlay                     | `"ATAC"` in `assays_selected`                            |
-| `cellinfo3D_cellinfo3D_atac`  | CellInfo3D vs CellInfo3D (ATAC) | Interactive 3D embedding coloured by metadata, ATAC assay version | `"ATAC"` in `assays_selected`, `do_umap3d = TRUE` in prep |
-| `cellinfo3D_peakaccess3D`     | CellInfo3D vs PeakAccess3D    | Interactive 3D embedding with peak accessibility overlay         | `"ATAC"` in `assays_selected`, `do_umap3d = TRUE` in prep |
-| `peakcoex`                    | Peak Coaccessibility          | Coaccessibility of selected peaks across cells or groups         | `"ATAC"` in `assays_selected`                            |
-| `violin_boxplot_atac`         | Violin / BoxPlot (ATAC)       | Violin and boxplots for peak accessibility or metadata           | `"ATAC"` in `assays_selected`                            |
-| `proportions_atac`            | Cell Proportions (ATAC)       | Cell composition across groups, ATAC assay version                | `"ATAC"` in `assays_selected`                            |
-| `bubble_heatmap_atac`         | Bubble Plot / Heatmap (ATAC)  | Bubble plot and heatmap for peak sets across groups               | `"ATAC"` in `assays_selected`                            |
-| `pseudobulk_atac`             | Pseudobulk DE (ATAC)          | Pseudobulk aggregation and differential accessibility analysis   | `"ATAC"` in `assays_selected`                            |
-
-`track_plot.R` (coming soon)
-
-### MULTI
-
-Tabs in this folder are not all `_multi` dataset-list variants, some are single-dataset ATAC-derived tabs that happen to live here (assumed, since `motif_plot` and `coverage_plot` don't have `_multi` in their id and aren't listed as `_multi` variants above).
-
-| Tab ID (`enabled_tabs`)   | Tab title              | What it shows                                         | Extra prep needed             |
-|----------------------------|-------------------------|---------------------------------------------------------|----------------------------------|
-| `motif_plot`               | Motif Plot              | Transcription factor motif sequence logos, with optional enrichment scores | `sc1motifs.rds` and `sc1motifs_meta.parquet` in `dir_inputs/ATAC/` (written by prep when `do_motifs` finds a populated `@motifs` slot) |
-| `coverage_plot`            | Coverage Plot           | Genome browser style coverage tracks from ATAC fragments | Fragment files copied to `dir_inputs/ATAC/fragments/` (`sc1fragmentpaths.rds`), supply `fragments_paths` in prep if auto-detection fails (assumed, based on `.extract_atac_static()`) |
-| `cellinfo_geneexpr_multi`  | CellInfo vs GeneExpr Multi | Multi-dataset 2D embedding with gene expression overlay | n/a |
-| `cellinfo3D_geneexpr3D_multi` | CellInfo3D vs GeneExpr3D Multi | Multi-dataset interactive 3D embedding with gene expression overlay | `do_umap3d = TRUE` in prep, per dataset |
-| `genecoex_multi`           | Gene Coexpression       | Multi-dataset coexpression of selected genes across cells or groups | n/a |
-
-### SPATIAL
-
-Coming soon.
-
-### CropSeq/ PerturbSeq
-
-Coming soon.
-
+See the full list of tab IDs, what each one shows, and any extra `prepShinyCellModular()` steps it needs in [Available tabs](https://monashbioinformaticsplatform.github.io/ShinyCellModular/articles/available_tabs.html).
 
 ***
 ## Legacy version
