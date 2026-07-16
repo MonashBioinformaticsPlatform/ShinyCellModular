@@ -111,10 +111,9 @@
 Cursor, GitHub Copilot, ChatGPT, or any other agent capable of reading
 and editing files) can safely work on one tab without needing to
 understand the rest of the app; that’s the whole point of the module
-architecture. The attached file,
-<strong><code>shinycellmodular-skill/SKILL.md</code></strong>, is
-written specifically to brief an AI agent on these conventions before it
-touches any code.</p>
+architecture. The file <a href="https://github.com/MonashBioinformaticsPlatform/ShinyCellModular/blob/main/vignettes/skill-shinycellmodular.md" class="external-link"><strong><code>skill-shinycellmodular.md</code></strong></a>
+is written specifically to brief an AI agent on these conventions before
+it touches any code.</p>
 <p><strong>The skill file is conventions only, not the
 codebase.</strong> It tells an agent the structure, naming rules, and
 constraints to follow; it does not give the agent the actual repository.
@@ -125,43 +124,45 @@ to leave alone).</p>
 <h3 id="how-to-use-it">How to use it<a class="anchor" aria-label="anchor" href="#how-to-use-it"></a>
 </h3>
 <p>The mechanics differ by tool, but the requirement is the same
-everywhere: the agent needs both the conventions in
-<code>SKILL.md</code> and real access to the repository files, not one
-without the other.</p>
+everywhere: the agent needs both the conventions in the skill file and
+real access to the repository files, not one without the other.</p>
 <ul>
 <li>
 <strong>Agents that work directly on a local checkout</strong>
-(Claude Code, Cursor, and similar tools): place <code>SKILL.md</code>
-wherever that tool looks for project-level instructions (for Claude
-Code, <code>.claude/skills/</code> at the repo root, or
-<code>~/.claude/skills/</code> for a personal, cross-project copy), and
-run the agent from inside a checkout of the repo. It then has the full
-codebase on disk, so the skill file only adds the conventions layer on
-top; it can genuinely see, and avoid touching, other modules.</li>
+(Claude Code, Cursor, and similar tools): copy
+<code>skill-shinycellmodular.md</code> to wherever that tool looks for
+project-level instructions (for Claude Code, as
+<code>.claude/skills/shinycellmodular/SKILL.md</code> at the repo root,
+or under <code>~/.claude/skills/</code> for a personal, cross-project
+copy), and run the agent from inside a checkout of the repo. It then has
+the full codebase on disk, so the skill file only adds the conventions
+layer on top; it can genuinely see, and avoid touching, other
+modules.</li>
 <li>
 <strong>Chat-based tools with file upload or project
 knowledge</strong> (a Claude Project, Cowork, a custom GPT, etc.):
-uploading <code>SKILL.md</code> alone is not enough. Also attach the
-module file you want changed (and, ideally, the
-<code>inst/modules/</code> folder as a whole), or point the agent at the
-repo directly:
+uploading the skill file alone is not enough. Also attach the module
+file you want changed (and, ideally, the <code>inst/modules/</code>
+folder as a whole), or point the agent at the repo directly:
 <code>https://github.com/MonashBioinformaticsPlatform/ShinyCellModular</code>.
 Without that, an instruction like “don’t touch any other module” is
 meaningless since the agent never had those files in front of it to
 begin with.</li>
 <li>
-<strong>Any other agent</strong>: paste <code>SKILL.md</code> in as
-a system/context message, and make sure the agent has read or fetch
-access to the actual files it’s editing, the same way you would for a
-human contributor working from written conventions alone.</li>
+<strong>Any other agent</strong>: paste the contents of
+<code>skill-shinycellmodular.md</code> in as a system/context message,
+and make sure the agent has read or fetch access to the actual files
+it’s editing, the same way you would for a human contributor working
+from written conventions alone.</li>
 </ul>
 </div>
 <div class="section level3">
 <h3 id="a-good-request-looks-like">A good request looks like<a class="anchor" aria-label="anchor" href="#a-good-request-looks-like"></a>
 </h3>
 <blockquote>
-<p>“Using the ShinyCellModular conventions in SKILL.md, add a log-scale
-toggle to the attached <code>violin_boxplot.R</code> module.”</p>
+<p>“Using the ShinyCellModular conventions in skill-shinycellmodular.md,
+add a log-scale toggle to the attached <code>violin_boxplot.R</code>
+module.”</p>
 </blockquote>
 <p>The skill file tells the agent: the exact structure to preserve,
 which server arguments are available, the naming conventions, and,
