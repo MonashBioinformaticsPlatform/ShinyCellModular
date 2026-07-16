@@ -44,4 +44,5 @@ arguments available to you.
   `prepShinyCellModular()`, `useShinyCellModular()`, `register_tab()` in
   full, for when you need more than the quickstart above
 - [Using an AI agent](developer_guide_ai_agents.html) — briefing Claude
-  Code, Cursor, or a chat tool with `SKILL.md` to speed up tab development
+  Code, Cursor, or a chat tool with `skill-shinycellmodular.md` to speed
+  up tab development

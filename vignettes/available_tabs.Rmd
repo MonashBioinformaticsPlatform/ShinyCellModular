@@ -45,8 +45,7 @@ All ATAC tabs require `"ATAC"` in `assays_selected` when running `prepShinyCellM
 | `proportions_atac`            | Cell Proportions (ATAC)       | Cell composition across groups, ATAC assay version                | `"ATAC"` in `assays_selected`                            |
 | `bubble_heatmap_atac`         | Bubble Plot / Heatmap (ATAC)  | Bubble plot and heatmap for peak sets across groups               | `"ATAC"` in `assays_selected`                            |
 | `pseudobulk_atac`             | Pseudobulk DE (ATAC)          | Pseudobulk aggregation and differential accessibility analysis   | `"ATAC"` in `assays_selected`                            |
-
-`track_plot.R` (coming soon)
+| `track_plot`                  | Coverage Plot (ATAC)          | Genome browser coverage tracks for a single ATAC dataset, with optional peaks, links, and annotation tracks | `"ATAC"` in `assays_selected` |
 
 ## MULTI
 
