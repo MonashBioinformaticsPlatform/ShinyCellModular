@@ -677,7 +677,7 @@ scPseudobulk_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_input
       sList <<- c(Small = 10, Medium = 12, Large = 14)
     }
     
-    h5_counts <- file.path(dir_inputs, "sc1counts.h5")
+    h5_counts <- file.path(dir_inputs,"RNA", "sc1counts.h5")
     
     # ── Cell type level selector ──
     output$sc1e1_celltype_level.ui <- renderUI({

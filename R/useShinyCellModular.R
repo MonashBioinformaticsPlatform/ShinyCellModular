@@ -418,13 +418,14 @@ sctheme <- function(base_size = 24, XYval = TRUE, Xang = 0, XjusH = 0.5){
   return(oupTheme) 
 } 
  
+# ---- SCM_INSTANCE_VALUES_START ----
 app_title <- "__APP_TITLE__"
-
 navbar_css <- "__NAVBAR_CSS__"
-
 shinyCellModularVersion <- "__SCM_VERSION__"
-
 dir_inputs <- "__DIR_INPUTS__/"
+assays <- __ASSAYS__
+enabled_tabs <- __ENABLED_TABS__
+# ---- SCM_INSTANCE_VALUES_END ----
 
 if (file.exists(file.path(dir_inputs,"RNA"))) {
         rna_dir         <- file.path(dir_inputs, "RNA")
@@ -468,8 +469,7 @@ if (file.exists(file.path(dir_inputs,"ATAC"))) {
         }
 
 
-assays <- __ASSAYS__ # still unclear if I am using this for anything
-assays_vec <- unique(sc1conf$assay)
+assays_vec <- unique(sc1conf$assay) # still unclear if I am using this for anything
 
 tab_registry <- list()
 
@@ -570,8 +570,6 @@ if (length(tab_registry) == 0) {
     call. = FALSE
   )
 }
-
-enabled_tabs <- __ENABLED_TABS__
 
 missing_tabs <- setdiff(enabled_tabs, names(tab_registry))
 if (length(missing_tabs) > 0) {

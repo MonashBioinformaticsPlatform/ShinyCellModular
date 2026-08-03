@@ -709,7 +709,8 @@ prepShinyCellModular <- function(
             next
           }
           red_name <- paste0(red, umap3d_name_suffix)
-          n_dimensions  <-  ncol(Embeddings(seurat_obj, red))
+          #n_dimensions  <-  ncol(Embeddings(seurat_obj, red))
+          n_dimensions  <-  ncol(Embeddings(seurat_obj[[red]]))
           if(identical(n_dimensions,umap3d_dims)){umap3d_dims= umap3d_dims }else{umap3d_dims= 1:n_dimensions}
           if (length(umap3d_dims) < 3) next
           .msg("  RunUMAP reduction=", red, " into ", red_name)

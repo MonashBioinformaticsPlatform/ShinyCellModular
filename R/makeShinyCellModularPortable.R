@@ -194,6 +194,7 @@ makeShinyCellModularPortable <- function(
   skeleton <- existing_app
 
   config_load_block <- paste0(
+    '# ---- SCM_INSTANCE_VALUES_START ----\n',
     '# app.R does not change between datasets in portable mode\n',
     '# every dataset just needs its own app_config.yml (and data) sitting next to a copy of this file\n',
     '# SCMODULAR_DATA_DIR still works exactly as before, it now also tells app.R where the bundle (data + app_config.yml) lives\n',
@@ -238,36 +239,27 @@ makeShinyCellModularPortable <- function(
     'app_title    <- app_config$app_title\n',
     'navbar_css   <- app_config$navbar_css\n',
     'shinyCellModularVersion <- app_config$scm_version\n',
-    '\n',
-    'dir_inputs <- file.path(bundle_dir, app_config$dir_inputs)'
+    'dir_inputs   <- file.path(bundle_dir, app_config$dir_inputs)\n',
+    'assays       <- unlist(app_config$assays)\n',
+    'enabled_tabs <- unlist(app_config$enabled_tabs)\n',
+    '# ---- SCM_INSTANCE_VALUES_END ----'
   )
 
-  # app_title / navbar_css / shinyCellModularVersion / dir_inputs assignment
-  # block -> read from app_config instead
+  # everything between the two sentinel marker comments (inserted by
+  # useShinyCellModular()'s template around the six baked instance values) is
+  # replaced wholesale with config_load_block, regardless of the exact
+  # formatting/whitespace of what's inside them
   skeleton_new <- sub(
-    'app_title <- "[^"]*"\n\nnavbar_css <- "[^"]*"\n\nshinyCellModularVersion <- "[^"]*"\n\ndir_inputs <- "[^"]*"',
+    '(?s)# ---- SCM_INSTANCE_VALUES_START ----.*?# ---- SCM_INSTANCE_VALUES_END ----',
     config_load_block,
-    skeleton
+    skeleton,
+    perl = TRUE
   )
   if (identical(skeleton_new, skeleton)) {
-    stop("Could not find the app_title/navbar_css/shinyCellModularVersion/dir_inputs block in ", app_r_path, " to make portable. ",
+    stop("Could not find the SCM_INSTANCE_VALUES_START/END marker block in ", app_r_path, " to make portable. ",
          "Was this app.R already made portable, or hand-edited beyond recognition?", call. = FALSE)
   }
   skeleton <- skeleton_new
-
-  # assays <- c(...) -> read from app_config, keep whatever trailing comment was there
-  skeleton <- sub(
-    '(assays <- )c\\([^)]*\\)([^\n]*)',
-    "\\1unlist(app_config$assays)\\2",
-    skeleton
-  )
-
-  # enabled_tabs <- c(...) -> read from app_config, keep whatever trailing comment was there
-  skeleton <- sub(
-    '(enabled_tabs <- )c\\([^)]*\\)([^\n]*)',
-    "\\1unlist(app_config$enabled_tabs)\\2",
-    skeleton
-  )
 
   # the footer already reads `shinyCellModularVersion` as a variable (see app.R's
   # template), and that variable is reassigned from app_config above, so no
