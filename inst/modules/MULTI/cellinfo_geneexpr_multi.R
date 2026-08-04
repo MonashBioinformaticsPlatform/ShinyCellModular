@@ -776,7 +776,7 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 
 register_tab(
   id          = "cellinfo_geneexpr_multi",
-  title       = "CellInfo vs GeneExpr Multi",
+  title       = "CellInfo vs GeneExpr (Multi)",
   ui          = scDRnum_ui,
   server      = scDRnum_server,
   author      = "Laura Perlaza-Jimenez",

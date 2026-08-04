@@ -399,7 +399,7 @@ scSplitViolin_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
 
 register_tab(
   id          = "split_violin",
-  title       = "Split Violin Plot",
+  title       = "Split Violin Plot (RNA)",
   ui          = scSplitViolin_ui,
   server      = scSplitViolin_server,
   author      = "Laura Perlaza-Jimenez",

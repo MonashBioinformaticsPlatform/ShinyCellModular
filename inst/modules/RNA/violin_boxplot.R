@@ -613,7 +613,7 @@ scVioBox_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 ############################################### Registration #################################################
 register_tab(
   id          = "violin_boxplot",
-  title       = "Violin / BoxPlot",
+  title       = "Violin / BoxPlot (RNA)",
   ui          = scVioBox_ui,
   server      = scVioBox_server,
   author      = "Laura Perlaza-Jimenez",

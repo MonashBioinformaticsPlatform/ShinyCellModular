@@ -387,7 +387,7 @@ scDRcoex_server <-  function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
 
 register_tab(
   id          = "genecoex_multi",
-  title       = "Gene Coexpression",
+  title       = "Gene Coexpression (Multi)",
   ui          = scDRcoex_ui,
   server      = scDRcoex_server,
   author      = "Laura Perlaza-Jimenez",

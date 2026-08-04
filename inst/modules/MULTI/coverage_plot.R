@@ -544,7 +544,7 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
 ############################################### Server ###############################################
 
 coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs,
-                                 sc1meta_atac, sc1fragmentpaths, sc1annotation,
+                                 sc1meta_atac, sc1fragmentpaths, sc1annotation_atac,
                                  sc1peaks, sc1links, sc1atactiles = NULL) {
   moduleServer(id, function(input, output, session) {
     
@@ -558,9 +558,9 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       ))
     }
     
-    gene_choices <- if (!is.null(sc1annotation) &&
-                        "gene_name" %in% names(GenomicRanges::mcols(sc1annotation))) {
-      ann <- sc1annotation
+    gene_choices <- if (!is.null(sc1annotation_atac) &&
+                        "gene_name" %in% names(GenomicRanges::mcols(sc1annotation_atac))) {
+      ann <- sc1annotation_atac
       # restrict to protein_coding genes when biotype is available, this keeps repeat
       # families and small RNAs (e.g. Y_RNA, 5S_rRNA) that reuse gene_name across many
       # loci out of the picker entirely, so a selected gene is always a single locus
@@ -570,8 +570,8 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     } else names(sc1gene)
     
     # chromosome list for the Region input method, annotation first, peaks as fallback
-    chr_choices <- if (!is.null(sc1annotation)) {
-      sort(unique(as.character(GenomicRanges::seqnames(sc1annotation))))
+    chr_choices <- if (!is.null(sc1annotation_atac)) {
+      sort(unique(as.character(GenomicRanges::seqnames(sc1annotation_atac))))
     } else if (!is.null(sc1peaks)) {
       sort(unique(as.character(GenomicRanges::seqnames(sc1peaks))))
     } else character(0)
@@ -614,7 +614,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         
         gene <- trimws(input$sc1cov_gene %||% "")
         r    <- if (input$sc1cov_input_method %||% "Gene" == "Gene") {
-          if (nzchar(gene)) sc_gene_region(gene, sc1annotation) else NULL
+          if (nzchar(gene)) sc_gene_region(gene, sc1annotation_atac) else NULL
         } else {
           chr <- input$sc1cov_chr
           st  <- input$sc1cov_start
@@ -625,7 +625,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         }
         # falling back to gene_choices[1] here is safe again now that this block is
         # gated behind the Plot button, it only affects the one automatic run on load
-        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation)
+        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation_atac)
         if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths)) {
           # temporary debug output for fragment path troubleshooting
           dbg <- paste0(
@@ -636,7 +636,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
             "  input method: '", input$sc1cov_input_method %||% "", "'\n",
             "  gene input: '", gene, "'\n",
             "  chr/start/end input: '", input$sc1cov_chr %||% "", "', '", input$sc1cov_start %||% "", "', '", input$sc1cov_end %||% "", "'\n",
-            "  sc1annotation is.null: ", is.null(sc1annotation)
+            "  sc1annotation_atac is.null: ", is.null(sc1annotation_atac)
           )
           debugTxt(dbg)
           message(dbg)
@@ -701,7 +701,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz)
         track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz)           else NULL
         track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz)           else NULL
-        track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL
+        track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL
         track_expr  <- if (isTRUE(input$sc1cov_show_expr)) {
           g <- trimws(input$sc1cov_expr_gene %||% "")
           if (nzchar(g)) sc_plot_expression(g, sc1meta, sc1gene, file.path(dir_inputs, "RNA", "sc1gexpr.h5"), grp, base_size = fsz) else NULL
@@ -768,7 +768,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       content  = function(file) {
         gene <- trimws(input$sc1cov_gene %||% "")
         r    <- if (input$sc1cov_input_method %||% "Gene" == "Gene") {
-          if (nzchar(gene)) sc_gene_region(gene, sc1annotation) else NULL
+          if (nzchar(gene)) sc_gene_region(gene, sc1annotation_atac) else NULL
         } else {
           chr <- input$sc1cov_chr
           st  <- input$sc1cov_start
@@ -778,7 +778,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           else NULL
         }
         # r should never be NULL, fall back to the first gene in the list if both gene and region inputs are empty or invalid
-        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation)
+        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation_atac)
         if (is.null(r)) return(NULL)
         r$start <- max(1L, r$start - (input$sc1cov_ext_up %||% 1000))
         r$end   <- r$end + (input$sc1cov_ext_dn %||% 1000)
@@ -800,7 +800,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
                peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
                links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
-               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL),
+               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL),
           c(coverage = 10, peaks = 1, links = 2, annotation = 2)
         )
         ggsave(file, plot = p, device = "pdf", height = input$sc1cov_h, width = input$sc1cov_w, useDingbats = FALSE)
@@ -812,7 +812,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
       content  = function(file) {
         gene <- trimws(input$sc1cov_gene %||% "")
         r    <- if (input$sc1cov_input_method %||% "Gene" == "Gene") {
-          if (nzchar(gene)) sc_gene_region(gene, sc1annotation) else NULL
+          if (nzchar(gene)) sc_gene_region(gene, sc1annotation_atac) else NULL
         } else {
           chr <- input$sc1cov_chr
           st  <- input$sc1cov_start
@@ -822,7 +822,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           else NULL
         }
         # r should never be NULL, fall back to the first gene in the list if both gene and region inputs are empty or invalid
-        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation)
+        if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation_atac)
         if (is.null(r)) return(NULL)
         r$start <- max(1L, r$start - (input$sc1cov_ext_up %||% 1000))
         r$end   <- r$end + (input$sc1cov_ext_dn %||% 1000)
@@ -844,7 +844,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
                peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
                links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
-               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL),
+               annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL),
           c(coverage = 10, peaks = 1, links = 2, annotation = 2)
         )
         ggsave(file, plot = p, device = "png", height = input$sc1cov_h, width = input$sc1cov_w)
@@ -859,7 +859,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
 
 register_tab(
   id          = "coverage_plot",
-  title       = "Coverage Plot",
+  title       = "Coverage Plot (Multi)",
   ui          = coverage_plot_ui,
   server      = coverage_plot_server,
   author      = "Laura Perlaza-Jimenez",

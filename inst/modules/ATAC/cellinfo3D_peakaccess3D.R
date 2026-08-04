@@ -662,7 +662,7 @@ cellinfo3D_peakaccess3D_server <- function(id, sc1conf_atac, sc1meta_atac, sc1ge
 
 register_tab(
   id          = "cellinfo3D_peakaccess3D",
-  title       = "CellInfo3D vs PeakAccess3D",
+  title       = "CellInfo3D vs PeakAccess3D (ATAC)",
   ui          = cellinfo3D_peakaccess3D_ui,
   server      = cellinfo3D_peakaccess3D_server,
   author      = "Laura Perlaza-Jimenez",

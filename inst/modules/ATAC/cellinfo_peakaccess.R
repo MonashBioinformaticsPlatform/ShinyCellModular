@@ -728,7 +728,7 @@ cellinfo_peakaccess_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_a
 ############################################### Registration #################################################
 register_tab(
   id          = "cellinfo_peakaccess",
-  title       = "CellInfo vs PeakAccess",
+  title       = "CellInfo vs PeakAccess (ATAC)",
   ui          = cellinfo_peakaccess_ui,
   server      = cellinfo_peakaccess_server,
   author      = "Laura Perlaza-Jimenez",

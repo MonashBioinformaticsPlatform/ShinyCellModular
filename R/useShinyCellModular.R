@@ -427,47 +427,45 @@ assays <- __ASSAYS__
 enabled_tabs <- __ENABLED_TABS__
 # ---- SCM_INSTANCE_VALUES_END ----
 
-if (file.exists(file.path(dir_inputs,"RNA"))) {
-        rna_dir         <- file.path(dir_inputs, "RNA")
-        sc1conf <- tryCatch({readRDS(file.path(rna_dir, "sc1conf.rds"))},error = function(e) {return(NULL)})
-        sc1def  <- tryCatch({readRDS(file.path(rna_dir, "sc1def.rds"))},error = function(e) {return(NULL)})
-        sc1gene <- tryCatch({readRDS(file.path(rna_dir, "sc1gene.rds"))},error = function(e) {return(NULL)})
-        sc1meta <- tryCatch({readRDS(file.path(rna_dir, "sc1meta.rds"))},error = function(e) {return(NULL)})
-        markers_list <- tryCatch({file.path(rna_dir, "markergenes_lists.parquet")},error = function(e) {return(NULL)})
 
-}else { sc1conf     <- NULL
-       sc1def      <- NULL
-       sc1gene     <- NULL
-       sc1meta     <- NULL
-       markers_list <- NULL
-        }
+assay_dirs <- list.dirs(dir_inputs, full.names = FALSE, recursive = FALSE)
+assay_dirs <- assay_dirs[file.exists(file.path(dir_inputs, assay_dirs, "sc1conf.rds"))]
 
-# there must be a better way to do this for all alternative assays
+scm_var_names <- character(0)   # track every name we assign, used later to build scm_globals
 
-if (file.exists(file.path(dir_inputs,"ATAC"))) {
-  atac_dir         <- file.path(dir_inputs, "ATAC")
-  sc1conf_atac     <- tryCatch({readRDS(file.path(atac_dir, "sc1conf.rds"))},error = function(e) {return(NULL)})
-  sc1def_atac      <- tryCatch({readRDS(file.path(atac_dir, "sc1def.rds"))},error = function(e){return(NULL)})
-  sc1gene_atac     <- tryCatch({readRDS(file.path(atac_dir, "sc1gene.rds"))},error = function(e){return(NULL)})
-  sc1meta_atac     <- tryCatch({readRDS(file.path(atac_dir, "sc1meta.rds"))},error = function(e){return(NULL)})
-  sc1fragmentpaths <- tryCatch({readRDS(file.path(atac_dir, "sc1fragmentpaths.rds"))},error = function(e){return(NULL)})
-  sc1annotation    <- tryCatch({readRDS(file.path(atac_dir, "sc1annotation.rds"))},error = function(e){return(NULL)})
-  sc1peaks         <- tryCatch({readRDS(file.path(atac_dir, "sc1peaks.rds"))},error = function(e){return(NULL)})
-  sc1links         <- tryCatch({readRDS(file.path(atac_dir, "sc1links.rds"))},error = function(e) {return(NULL)})
-  sc1atactiles     <- tryCatch({ d <- file.path(atac_dir, "tiles")
-                         if (dir.exists(d)) d else NULL
-                       }, error = function(e) {return(NULL)})
-}else { sc1conf_atac     <- NULL
-          sc1def_atac      <- NULL
-          sc1gene_atac     <- NULL
-          sc1meta_atac     <- NULL
-          sc1fragmentpaths <- NULL
-          sc1annotation    <- NULL
-          sc1peaks         <- NULL
-          sc1links         <- NULL
-          sc1atactiles     <- NULL
-        }
+for (assay in assay_dirs) {
+  adir   <- file.path(dir_inputs, assay)
+  suffix <- if (toupper(assay) == "RNA") "" else paste0("_", tolower(assay))
 
+  files <- list.files(adir, full.names = FALSE)
+
+  for (fname in files) {
+    fpath   <- file.path(adir, fname)
+    base    <- tools::file_path_sans_ext(fname)
+    ext     <- tolower(tools::file_ext(fname))
+    varname <- paste0(base, suffix)
+
+    if (ext == "rds") {
+      assign(varname, tryCatch(readRDS(fpath), error = function(e) NULL), envir = environment())
+    } else {
+      assign(varname, fpath, envir = environment())
+    }
+
+    scm_var_names <- c(scm_var_names, varname)
+  }
+
+  # subdirectories inside an assay folder (e.g. ATAC/tiles/) arent caught by
+  # list.files() above unless recursive; handle them as path-only too
+  subdirs <- list.dirs(adir, full.names = FALSE, recursive = FALSE)
+  for (sd in subdirs) {
+    varname <- paste0(sd, suffix)
+    assign(varname, file.path(adir, sd), envir = environment())
+    scm_var_names <- c(scm_var_names, varname)
+  }
+}
+
+scm_var_names <- c(scm_var_names, "assays", "dir_inputs")
+scm_globals <- mget(scm_var_names, envir = environment(), ifnotfound = list(NULL))
 
 assays_vec <- unique(sc1conf$assay) # still unclear if I am using this for anything
 
@@ -589,6 +587,9 @@ tab_panels <- lapply(tab_ids, function(k) {
 
   meta <- tab_registry[[k]]
 
+  ui_args <- c(list(id = k), scm_globals)
+  keep <- intersect(names(ui_args), names(formals(meta$ui)))
+
   # build per-tab footer from registry metadata — always shown, fields omitted if NULL
   .fmt_field <- function(label, val) {
     if (!is.null(val) && nzchar(val)) tags$span(style = "margin-right: 18px;", tags$b(paste0(label, ": ")), val)
@@ -609,12 +610,10 @@ tab_panels <- lapply(tab_ids, function(k) {
 
   tabPanel(
     meta$title,
-    meta$ui(id = k, sc1conf = sc1conf, sc1def = sc1def),
+    do.call(meta$ui, ui_args[keep]),
     tab_footer
   )
 })
-
-
 
  ui <- fluidPage( 
       tags$head(
@@ -642,44 +641,18 @@ tags$p(
 ),
       br(), br(), br(), br(), br()
     )
-  
- 
-   
-    
-    
-  
-
 
 server <- function(input, output, session) {
   lapply(tab_ids, function(k) {
 
     srv <- tab_registry[[k]]$server
 
-    args_to_pass <- list(
-      id = k,
-      sc1conf = sc1conf,
-      sc1meta = sc1meta,
-      sc1gene = sc1gene,
-      sc1def  = sc1def,
-      sc1conf_atac     = sc1conf_atac,
-      sc1def_atac      = sc1def_atac,
-      sc1gene_atac     = sc1gene_atac,
-      sc1meta_atac     = sc1meta_atac,
-      sc1fragmentpaths = sc1fragmentpaths,
-      sc1annotation    = sc1annotation,
-      sc1peaks         = sc1peaks,
-      sc1links         = sc1links,
-      sc1atactiles     = sc1atactiles,
-      markers_list = markers_list,
-      assays = assays,
-      dir_inputs = dir_inputs
-    )
+    args_to_pass <- c(list(id = k), scm_globals)
 
     keep <- intersect(names(args_to_pass), names(formals(srv)))
     do.call(srv, args_to_pass[keep])
   })
 }
-
 
 shinyApp(ui, server)
 '

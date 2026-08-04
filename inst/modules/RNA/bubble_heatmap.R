@@ -698,7 +698,7 @@ scBubbHeat_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 ############################################### Registration #################################################
 register_tab(
   id          = "bubble_heatmap",
-  title       = "Bubble Plot / Heatmap",
+  title       = "Bubble Plot / Heatmap (RNA)",
   ui          = scBubbHeat_ui,
   server      = scBubbHeat_server,
   author      = "Laura Perlaza-Jimenez",

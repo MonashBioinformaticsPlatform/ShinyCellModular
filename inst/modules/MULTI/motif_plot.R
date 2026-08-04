@@ -300,7 +300,7 @@ motif_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs)
 ############################################### Registration ##########################################
 register_tab(
   id          = "motif_plot",
-  title       = "Motif Plot",
+  title       = "Motif Plot (Multi)",
   ui          = motif_plot_ui,
   server      = motif_plot_server,
   author      = "Laura Perlaza-Jimenez",

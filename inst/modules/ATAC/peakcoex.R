@@ -373,7 +373,7 @@ peakcoex_server <-  function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac, sc1de
 
 register_tab(
   id          = "peakcoex",
-  title       = "Peak Coaccessibility",
+  title       = "Peak Coaccessibility (ATAC)",
   ui          = peakcoex_ui,
   server      = peakcoex_server,
   author      = "Laura Perlaza-Jimenez",

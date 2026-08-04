@@ -497,7 +497,7 @@ track_plot_ui <- function(id, sc1conf_atac, sc1def_atac) {
 ############################################### Server ###############################################
 
 track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
-                              sc1meta_atac, sc1fragmentpaths, sc1annotation,
+                              sc1meta_atac, sc1fragmentpaths, sc1annotation_atac,
                               sc1peaks, sc1links, sc1atactiles = NULL) {
   moduleServer(id, function(input, output, session) {
 
@@ -508,9 +508,9 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
       sc1meta_atac$cell_barcodes <- sc1meta_atac$sampleID
     }
 
-    gene_choices <- if (!is.null(sc1annotation) &&
-                        "gene_name" %in% names(GenomicRanges::mcols(sc1annotation))) {
-      ann <- sc1annotation
+    gene_choices <- if (!is.null(sc1annotation_atac) &&
+                        "gene_name" %in% names(GenomicRanges::mcols(sc1annotation_atac))) {
+      ann <- sc1annotation_atac
       # restrict to protein_coding genes when biotype is available, this keeps repeat
       # families and small RNAs (e.g. Y_RNA, 5S_rRNA) that reuse gene_name across many
       # loci out of the picker entirely, so a selected gene is always a single locus
@@ -520,8 +520,8 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
     } else character(0)
 
     # chromosome list for the Region input method, annotation first, peaks as fallback
-    chr_choices <- if (!is.null(sc1annotation)) {
-      sort(unique(as.character(GenomicRanges::seqnames(sc1annotation))))
+    chr_choices <- if (!is.null(sc1annotation_atac)) {
+      sort(unique(as.character(GenomicRanges::seqnames(sc1annotation_atac))))
     } else if (!is.null(sc1peaks)) {
       sort(unique(as.character(GenomicRanges::seqnames(sc1peaks))))
     } else character(0)
@@ -558,7 +558,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
 
         gene <- trimws(input$sc1trk_gene %||% "")
         r    <- if (input$sc1trk_input_method %||% "Gene" == "Gene") {
-          if (nzchar(gene)) trk_gene_region(gene, sc1annotation) else NULL
+          if (nzchar(gene)) trk_gene_region(gene, sc1annotation_atac) else NULL
         } else {
           chr <- input$sc1trk_chr
           st  <- input$sc1trk_start
@@ -569,7 +569,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
         }
         # falling back to gene_choices[1] here is safe again now that this block is
         # gated behind the Plot button, it only affects the one automatic run on load
-        if (is.null(r) && length(gene_choices) > 0) r <- trk_gene_region(gene_choices[1], sc1annotation)
+        if (is.null(r) && length(gene_choices) > 0) r <- trk_gene_region(gene_choices[1], sc1annotation_atac)
         if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths))
           return(ggplot() + theme_void())
 
@@ -601,7 +601,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
         track_cov   <- trk_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz)
         track_peaks <- if (isTRUE(input$sc1trk_show_peaks)) trk_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz)           else NULL
         track_links <- if (isTRUE(input$sc1trk_show_links)) trk_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz)           else NULL
-        track_annot <- if (isTRUE(input$sc1trk_show_annot)) trk_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL
+        track_annot <- if (isTRUE(input$sc1trk_show_annot)) trk_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL
 
         trk_combine_tracks(
           list(coverage = track_cov, peaks = track_peaks, links = track_links, annotation = track_annot),
@@ -642,7 +642,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
     build_plot <- function() {
       gene <- trimws(input$sc1trk_gene %||% "")
       r    <- if (input$sc1trk_input_method %||% "Gene" == "Gene") {
-        if (nzchar(gene)) trk_gene_region(gene, sc1annotation) else NULL
+        if (nzchar(gene)) trk_gene_region(gene, sc1annotation_atac) else NULL
       } else {
         chr <- input$sc1trk_chr
         st  <- input$sc1trk_start
@@ -651,7 +651,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
           list(chr = chr, start = as.integer(st), end = as.integer(en))
         else NULL
       }
-      if (is.null(r) && length(gene_choices) > 0) r <- trk_gene_region(gene_choices[1], sc1annotation)
+      if (is.null(r) && length(gene_choices) > 0) r <- trk_gene_region(gene_choices[1], sc1annotation_atac)
       if (is.null(r)) return(NULL)
       r$start <- max(1L, r$start - (input$sc1trk_ext_up %||% 1000))
       r$end   <- r$end + (input$sc1trk_ext_dn %||% 1000)
@@ -673,7 +673,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
         list(coverage   = trk_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
              peaks      = if (isTRUE(input$sc1trk_show_peaks)) trk_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
              links      = if (isTRUE(input$sc1trk_show_links)) trk_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
-             annotation = if (isTRUE(input$sc1trk_show_annot)) trk_plot_annotation(sc1annotation, r$chr, r$start, r$end, base_size = fsz) else NULL),
+             annotation = if (isTRUE(input$sc1trk_show_annot)) trk_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL),
         c(coverage = 10, peaks = 1, links = 2, annotation = 2)
       )
     }

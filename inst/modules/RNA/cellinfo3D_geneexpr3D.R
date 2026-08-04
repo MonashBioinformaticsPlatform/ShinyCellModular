@@ -662,7 +662,7 @@ scDRnum3D_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) 
 
 register_tab(
   id          = "cellinfo3D_geneexpr3D",
-  title       = "CellInfo3D vs GeneExpr3D",
+  title       = "CellInfo3D vs GeneExpr3D (RNA)",
   ui          = scDRnum3D_ui,
   server      = scDRnum3D_server,
   author      = "Laura Perlaza-Jimenez",

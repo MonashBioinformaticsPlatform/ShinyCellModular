@@ -181,43 +181,54 @@ prepShinyCellModular <- function(
     if (!requireNamespace(pkg, quietly = TRUE)) stop("Missing package: ", pkg, call. = FALSE)
   }
   
-  createcountsh5 <- function(seurat_obj, counts_h5_file, counts_overwrite, counts_layer, active_assay) {
-    if (file.exists(counts_h5_file) && !isTRUE(counts_overwrite)) {
-      .msg("Counts H5 exists, skipping (set counts_overwrite=TRUE to overwrite): ", counts_h5_file)
-    } else {
-      .msg("Writing sparse raw counts to H5 (CSC), file: ", counts_h5_file)
-      counts <- Seurat::GetAssayData(seurat_obj, assay = active_assay, layer = counts_layer)
-      if (!inherits(counts, "dgCMatrix")) counts <- methods::as(counts, "dgCMatrix")
-      i <- counts@i
-      p <- counts@p
-      x <- counts@x
-      dims <- counts@Dim
-      genes <- rownames(counts)
-      cells <- colnames(counts)
-      storage.mode(i) <- "integer"
-      storage.mode(p) <- "integer"
-      if (file.exists(counts_h5_file)) file.remove(counts_h5_file)
-      h5 <- hdf5r::H5File$new(counts_h5_file, mode = "w")
-      grp <- h5$create_group("counts")
-      grp$create_dataset("i",     robj = i,                dtype = hdf5r::h5types$H5T_STD_I32LE, gzip_level = 4)
-      grp$create_dataset("p",     robj = p,                dtype = hdf5r::h5types$H5T_STD_I32LE, gzip_level = 4)
-      grp$create_dataset("x",     robj = x,                gzip_level = 4)
-      grp$create_dataset("dims",  robj = as.integer(dims), dtype = hdf5r::h5types$H5T_STD_I32LE)
-      grp$create_dataset("genes", robj = genes)
-      grp$create_dataset("cells", robj = cells)
-      h5$create_attr("format", "dgCMatrix_CSC_v1")
-      h5$create_attr("assay",  active_assay)
-      h5$create_attr("layer",  counts_layer)
-      h5$close_all()
-      .msg("Counts H5 written OK")
-    }
-  }
+ createcountsh5 <- function(seurat_obj, counts_h5_file, counts_overwrite, counts_layer, active_assay) {
   
-  createSCfiles <- function(seurat_obj, active_assay, out_dir) {
-    if (isTRUE(do_variable_features)) {
-      .msg("Running FindVariableFeatures on assay ", active_assay)
-      seurat_obj <- Seurat::FindVariableFeatures(seurat_obj)
+  if (file.exists(counts_h5_file) && !isTRUE(counts_overwrite)) {
+    .msg("Counts H5 exists, skipping (set counts_overwrite=TRUE to overwrite): ", counts_h5_file)
+  } else {
+    .msg("Writing sparse raw counts to H5 (CSC), file: ", counts_h5_file)
+    counts <- Seurat::GetAssayData(seurat_obj, assay = active_assay, layer = counts_layer)
+    if (!inherits(counts, "dgCMatrix")) counts <- methods::as(counts, "dgCMatrix")
+
+    if (nrow(counts) == 0 || ncol(counts) == 0) {
+      stop(
+        "GetAssayData(assay = '", active_assay, "', layer = '", counts_layer,
+        "') returned an empty matrix (", nrow(counts), " features x ", ncol(counts), " cells).\n",
+        "This assay likely does not have a '", counts_layer, "' layer populated ",
+        "(common for regulon/activity-score assays, which usually only carry a 'data' layer).\n",
+        "Fix by passing a different counts_layer for this assay (e.g. counts_layer = 'data'), ",
+        "or set do_counts_h5 = FALSE to skip H5 export for it.",
+        call. = FALSE
+      )
     }
+
+    i <- counts@i
+    p <- counts@p
+    x <- counts@x
+    dims <- counts@Dim
+    genes <- rownames(counts)
+    cells <- colnames(counts)
+    storage.mode(i) <- "integer"
+    storage.mode(p) <- "integer"
+    if (file.exists(counts_h5_file)) file.remove(counts_h5_file)
+    h5 <- hdf5r::H5File$new(counts_h5_file, mode = "w")
+    grp <- h5$create_group("counts")
+    grp$create_dataset("i",     robj = i,                dtype = hdf5r::h5types$H5T_STD_I32LE, gzip_level = 4)
+    grp$create_dataset("p",     robj = p,                dtype = hdf5r::h5types$H5T_STD_I32LE, gzip_level = 4)
+    grp$create_dataset("x",     robj = x,                gzip_level = 4)
+    grp$create_dataset("dims",  robj = as.integer(dims), dtype = hdf5r::h5types$H5T_STD_I32LE)
+    grp$create_dataset("genes", robj = genes)
+    grp$create_dataset("cells", robj = cells)
+    h5$create_attr("format", "dgCMatrix_CSC_v1")
+    h5$create_attr("assay",  active_assay)
+    h5$create_attr("layer",  counts_layer)
+    h5$close_all()
+    .msg("Counts H5 written OK")
+  }
+}
+
+  createSCfiles <- function(seurat_obj, active_assay, out_dir) {
+
     .msg("Creating ShinyCell config")
     scConf <- ShinyCell::createConfig(seurat_obj, maxLevels = 100)
     
@@ -269,6 +280,13 @@ prepShinyCellModular <- function(
     }
   }
   
+    .resolve_per_assay <- function(x, active_assay, default) {
+    if (is.list(x)) {
+      if (!is.null(x[[active_assay]])) return(x[[active_assay]])
+      return(default)
+    }
+    x
+  }
   .extract_motifs <- function(seurat_obj, active_assay, atac_out_dir,
                               findmotifs_df, overwrite) {
     
@@ -690,7 +708,7 @@ prepShinyCellModular <- function(
     # RNA ASSAY
     ###########################################################################  
     if (active_assay == "RNA") {
-      
+
       rna_out_dir <- file.path(out_dir, "RNA")
       if (!dir.exists(rna_out_dir))
         dir.create(rna_out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -771,6 +789,7 @@ prepShinyCellModular <- function(
     ###########################################################################  
     if (active_assay == "ATAC") {
       
+      
       atac_out_dir <- file.path(out_dir, "ATAC")
       if (!dir.exists(atac_out_dir))
         dir.create(atac_out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -806,6 +825,22 @@ prepShinyCellModular <- function(
     # ALL ASSAYS
     ###########################################################################  
     
+if (isTRUE(do_variable_features) && active_assay != "ATAC") {
+  method <- if (active_assay == "RNA") "vst" else "mean.var.plot"
+  .msg("Running FindVariableFeatures on assay ", active_assay, " (method: ", method, ")")
+  seurat_obj <- tryCatch(
+    Seurat::FindVariableFeatures(seurat_obj, selection.method = method),
+    error = function(e) {
+      .msg(
+        "  FindVariableFeatures failed for assay ", active_assay,
+        " using method '", method, "': ", conditionMessage(e),
+        "\n  Skipping variable feature selection for this assay ",
+        "(ShinyCell may warn about missing variable genes, but app creation will continue)."
+      )
+      seurat_obj
+    }
+  )
+}
     
     if (isTRUE(do_make_app)) {
       createSCfiles(seurat_obj, active_assay, out_dir)
@@ -819,7 +854,9 @@ prepShinyCellModular <- function(
       .need_pkg("hdf5r")
       h5_path <- 
         file.path(out_dir, active_assay, "sc1counts.h5")
-      createcountsh5(seurat_obj, h5_path, counts_overwrite, counts_layer, active_assay)
+        this_layer <- .resolve_per_assay(counts_layer, active_assay, "data")
+      createcountsh5(seurat_obj, h5_path, counts_overwrite, this_layer, active_assay)
+      #createcountsh5(seurat_obj, h5_path, counts_overwrite, counts_layer, active_assay)
     } else {
       .msg("Counts H5 optional is OFF, skipping counts export")
     }

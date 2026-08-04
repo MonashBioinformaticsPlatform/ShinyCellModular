@@ -302,7 +302,7 @@ scWaffle_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
 
 register_tab(
   id          = "genexpr_waffle",
-  title       = "Gene Expression Waffle Plot",
+  title       = "Waffle Plot (RNA)",
   ui          = scWaffle_ui,
   server      = scWaffle_server,
   author      = "Laura Perlaza-Jimenez",
