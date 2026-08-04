@@ -108,8 +108,8 @@ sc_h5_read_counts_block <- function(
       cell_idx <- as.integer(cell_idx)
       
       shiny::validate(
-        shiny::need(all(gene_idx >= 1 & gene_idx <= n_genes), "gene_idx out of range for sc1counts_atac.h5"),
-        shiny::need(all(cell_idx >= 1 & cell_idx <= n_cells), "cell_idx out of range for sc1counts_atac.h5")
+        shiny::need(all(gene_idx >= 1 & gene_idx <= n_genes), "gene_idx out of range for sc1counts.h5"),
+        shiny::need(all(cell_idx >= 1 & cell_idx <= n_cells), "cell_idx out of range for sc1counts.h5")
       )
       
       cell_idx_u <- sort(unique(cell_idx))
@@ -147,7 +147,7 @@ sc_h5_read_counts_block <- function(
 }
 
 
-sc_make_pseudobulk <- function(sc1conf_atac,
+sc_make_pseudobulk_atac <- function(sc1conf_atac,
                                sc1meta_atac,
                                sc1gene_atac,
                                h5_counts_path,
@@ -285,7 +285,7 @@ sc_make_pseudobulk <- function(sc1conf_atac,
   )
 }
 
-sc_run_voom_limma <- function(pseudobulk,
+sc_run_voom_limma_atac <- function(pseudobulk,
                               design_df,
                               model_str = "~ condition",
                               contrast_str = "",
@@ -337,7 +337,7 @@ sc_run_voom_limma <- function(pseudobulk,
 }
 
 
-sc_pseudobulk_plots <- function(tt, p_cut = 0.05, fc_up = 1, fc_down = -1) {
+sc_pseudobulk_plots_atac <- function(tt, p_cut = 0.05, fc_up = 1, fc_down = -1) {
 
   shiny::validate(shiny::need(sc_has_pkg("ggplot2"), "ggplot2 is required for plotting."))
 
@@ -678,7 +678,7 @@ pseudobulk_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac,
       sList <<- c(Small = 10, Medium = 12, Large = 14)
     }
     
-    h5_counts <- file.path(dir_inputs, "ATAC", "sc1counts_atac.h5")
+    h5_counts <- file.path(dir_inputs, "ATAC", "sc1counts.h5")
     
     # ── Cell type level selector ──
     output$sc1e1_celltype_level.ui <- renderUI({
@@ -963,7 +963,7 @@ pseudobulk_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac,
     # ── Run DE ──
     res <- eventReactive(input$sc1e1_run, {
       shiny::validate(shiny::need(file.exists(h5_counts), paste0(
-        "Cannot find raw counts file: ", h5_counts, ". Create it first as sc1counts_atac.h5 in dir_inputs/ATAC."
+        "Cannot find raw counts file: ", h5_counts, ". Create it first as sc1counts.h5 in dir_inputs/ATAC."
       )))
       
       keep <- filtered_cells_idx()
@@ -983,7 +983,7 @@ pseudobulk_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac,
       covars <- character(0)
       if (!is.null(input$sc1e1_covars) && length(input$sc1e1_covars) > 0) covars <- input$sc1e1_covars
       
-      pb <- sc_make_pseudobulk(
+      pb <- sc_make_pseudobulk_atac(
         sc1conf_atac = sc1conf_atac,
         sc1meta_atac = sc1meta_atac,
         sc1gene_atac = sc1gene_atac,
@@ -997,7 +997,7 @@ pseudobulk_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac,
         selected_groups = grps
       )
       
-      fit <- sc_run_voom_limma(
+      fit <- sc_run_voom_limma_atac(
         pseudobulk = pb$pseudobulk,
         design_df = pb$design_df,
         model_str = input$sc1e1_model,
@@ -1006,7 +1006,7 @@ pseudobulk_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac,
         reference_level = input$sc1e1_reference
       )
       
-      plots <- sc_pseudobulk_plots(
+      plots <- sc_pseudobulk_plots_atac(
         fit$table,
         p_cut = input$sc1e1_pcut,
         fc_up = input$sc1e1_fc_up,
@@ -1119,7 +1119,7 @@ pseudobulk_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_atac,
 ############################################### Registration #################################################
 register_tab(
   id          = "pseudobulk_atac",
-  title       = "Pseudobulk DE (ATAC)",
+  title       = "Differential Accessible Regions (ATAC)",
   ui          = pseudobulk_atac_ui,
   server      = pseudobulk_atac_server,
   author      = "Laura Perlaza-Jimenez",

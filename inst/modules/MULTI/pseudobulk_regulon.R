@@ -40,7 +40,7 @@ sc_has_pkg <- function(pkg) {
   requireNamespace(pkg, quietly = TRUE)
 }
 
-sc_resolve_meta_col <- function(sc1conf, sc1meta, x) {
+sc_resolve_meta_col_regulon <- function(sc1conf, sc1meta, x) {
   if (is.null(x) || is.na(x) || !nzchar(x)) return(NULL)
 
   if (!is.null(sc1conf) && "UI" %in% names(sc1conf) && x %in% sc1conf$UI) {
@@ -53,7 +53,7 @@ sc_resolve_meta_col <- function(sc1conf, sc1meta, x) {
   NULL
 }
 
-sc_h5_find_dataset <- function(h5, candidates) {
+sc_h5_find_dataset_regulon <- function(h5, candidates) {
   for (p in candidates) {
     ok <- FALSE
     obj <- NULL
@@ -69,7 +69,7 @@ sc_h5_find_dataset <- function(h5, candidates) {
 # reads a block of the regulon activity matrix (same H5 layout written by
 # prepShinyCellModular's createcountsh5 for any assay: dense dataset if
 # present, else CSC group with i/p/x/dims)
-sc_h5_read_counts_block <- function(
+sc_h5_read_counts_block_regulon <- function(
         h5_path,
         gene_idx,
         cell_idx,
@@ -84,7 +84,7 @@ sc_h5_read_counts_block <- function(
       h5 <- hdf5r::H5File$new(h5_path, mode = "r")
       on.exit(try(h5$close_all(), silent = TRUE), add = TRUE)
 
-      found <- sc_h5_find_dataset(h5, dataset_candidates)
+      found <- sc_h5_find_dataset_regulon(h5, dataset_candidates)
       if (!is.null(found)) {
         dset <- found$obj
         return(dset[gene_idx, cell_idx, drop = FALSE])
@@ -171,8 +171,8 @@ sc_reg_make_pseudobulk_mean <- function(sc1conf,
                                         dataset_candidates = c("counts/counts", "counts/data", "grp/data"),
                                         selected_groups = NULL) {
 
-  unit_col <- sc_resolve_meta_col(sc1conf, sc1meta, unit_col_ui_or_meta)
-  cond_col <- sc_resolve_meta_col(sc1conf, sc1meta, condition_col_ui_or_meta)
+  unit_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, unit_col_ui_or_meta)
+  cond_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, condition_col_ui_or_meta)
 
   shiny::validate(shiny::need(!is.null(unit_col), paste0("Cannot resolve replicate column: ", unit_col_ui_or_meta)))
   shiny::validate(shiny::need(!is.null(cond_col), paste0("Cannot resolve condition column: ", condition_col_ui_or_meta)))
@@ -231,7 +231,7 @@ sc_reg_make_pseudobulk_mean <- function(sc1conf,
   unit_condition <- vapply(unit_condition, function(x) x[[1]], character(1))
   unit_condition <- unit_condition[uniq_units]
 
-  covar_cols <- vapply(covar_cols_ui_or_meta, function(z) sc_resolve_meta_col(sc1conf, sc1meta, z), character(1))
+  covar_cols <- vapply(covar_cols_ui_or_meta, function(z) sc_resolve_meta_col_regulon(sc1conf, sc1meta, z), character(1))
   covar_cols <- covar_cols[!is.na(covar_cols) & nzchar(covar_cols)]
   covar_cols <- unique(covar_cols)
 
@@ -271,7 +271,7 @@ sc_reg_make_pseudobulk_mean <- function(sc1conf,
 
   do_block <- function(ii) {
     gi <- regulon_idx[ii]
-    m <- sc_h5_read_counts_block(
+    m <- sc_h5_read_counts_block_regulon(
       h5_counts_path,
       gene_idx = gi,
       cell_idx = keep_cells_idx,
@@ -762,7 +762,7 @@ scPseudobulkRegulon_server <- function(id, sc1conf, sc1meta, sc1def, dir_inputs,
     # ── Cell type level selector ──
     output$sc1e1_celltype_level.ui <- renderUI({
       req(input$sc1e1_celltype_col)
-      col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_celltype_col)
+      col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_celltype_col)
       req(col)
 
       lv <- as.character(sc1meta[[col]])
@@ -785,7 +785,7 @@ scPseudobulkRegulon_server <- function(id, sc1conf, sc1meta, sc1def, dir_inputs,
     filtered_cells_idx <- reactive({
       req(input$sc1e1_celltype_col, input$sc1e1_celltype_level)
 
-      col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_celltype_col)
+      col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_celltype_col)
       req(col)
 
       ct <- sc1meta[[col]]
@@ -798,7 +798,7 @@ scPseudobulkRegulon_server <- function(id, sc1conf, sc1meta, sc1def, dir_inputs,
       req(length(keep) > 0)
       req(input$sc1e1_condition_col)
 
-      cond_col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_condition_col)
+      cond_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_condition_col)
       req(cond_col)
 
       cond_vec <- as.character(sc1meta[[cond_col]][keep])
@@ -879,8 +879,8 @@ scPseudobulkRegulon_server <- function(id, sc1conf, sc1meta, sc1def, dir_inputs,
       keep <- filtered_cells_idx()
       req(length(keep) > 0)
 
-      unit_col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_unit_col)
-      cond_col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_condition_col)
+      unit_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_unit_col)
+      cond_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_condition_col)
       req(unit_col, cond_col)
 
       unit_vec <- as.character(sc1meta[[unit_col]][keep])
@@ -938,7 +938,7 @@ scPseudobulkRegulon_server <- function(id, sc1conf, sc1meta, sc1def, dir_inputs,
           unit_key2 <- paste0(unit_full, "___", cond_full)
         }
 
-        covar_cols <- vapply(covars, function(z) sc_resolve_meta_col(sc1conf, sc1meta, z), character(1))
+        covar_cols <- vapply(covars, function(z) sc_resolve_meta_col_regulon(sc1conf, sc1meta, z), character(1))
         covar_cols <- covar_cols[!is.na(covar_cols) & nzchar(covar_cols)]
         covar_cols <- unique(covar_cols)
 
@@ -971,8 +971,8 @@ scPseudobulkRegulon_server <- function(id, sc1conf, sc1meta, sc1def, dir_inputs,
       keep <- filtered_cells_idx()
       req(length(keep) > 0)
 
-      unit_col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_unit_col)
-      cond_col <- sc_resolve_meta_col(sc1conf, sc1meta, input$sc1e1_condition_col)
+      unit_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_unit_col)
+      cond_col <- sc_resolve_meta_col_regulon(sc1conf, sc1meta, input$sc1e1_condition_col)
       req(unit_col, cond_col)
 
       unit_vec <- as.character(sc1meta[[unit_col]][keep])
