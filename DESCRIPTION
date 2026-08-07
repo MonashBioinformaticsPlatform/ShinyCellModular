@@ -1,6 +1,6 @@
 Package: ShinyCellModular
 Title: Modular Shiny App for Single Cell Data Exploration
-Version: 1.0.1.88
+Version: 1.0.1.90
 Authors@R: person("Laura", "Perlaza-Jimenez", ,
         "laura.perlaza-jimenez@monash.edu", role = c("aut", "cre"))
 Description: A modular version of ShinyCell developed at the Monash

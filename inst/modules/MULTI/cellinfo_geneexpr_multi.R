@@ -648,12 +648,12 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
     
     output$sc1a1_dtmarkers <- renderDT(server = FALSE, {
       
-      req(markers_list)
+      req(markergenes_lists)
       
       resolution_selection <- paste0(input$resolution)
       top_selection <- input$top
       
-      ds <- arrow::open_dataset(markers_list)
+      ds <- arrow::open_dataset(markergenes_lists)
       
       if (isTRUE(input$show_all)) {
         df <- ds |>
@@ -679,8 +679,8 @@ scDRnum_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs) {
         top_gene <- as.integer(input$top)
         rank_by_selection <- input$sc1a1splt_test
         
-        observeEvent(markers_list, {
-          ds <- arrow::open_dataset(markers_list)
+        observeEvent(markergenes_lists, {
+          ds <- arrow::open_dataset(markergenes_lists)
           message("marker columns: ", paste(names(ds), collapse = ", "))
         })
         
