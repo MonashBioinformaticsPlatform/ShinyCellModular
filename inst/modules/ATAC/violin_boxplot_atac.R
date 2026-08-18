@@ -435,12 +435,12 @@ violin_boxplot_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_a
     
     output$sc1c1_dtmarkers <- DT::renderDT(server = FALSE, {
       
-      req(markergenes_lists)
+      req(markerpeaks_lists)
       
       resolution_selection <- paste0(input$resolution)
       top_selection <- input$top
       
-      ds <- arrow::open_dataset(markergenes_lists)
+      ds <- arrow::open_dataset(markerpeaks_lists)
       
       if (isTRUE(input$show_all)) {
         df <- ds |>
@@ -466,8 +466,8 @@ violin_boxplot_atac_server <- function(id, sc1conf_atac, sc1meta_atac, sc1gene_a
         top_gene <- as.integer(input$top)
         rank_by_selection <- input$sc1c1splt_test
         
-        observeEvent(markergenes_lists, {
-          ds <- arrow::open_dataset(markergenes_lists)
+        observeEvent(markerpeaks_lists, {
+          ds <- arrow::open_dataset(markerpeaks_lists)
           message("marker columns: ", paste(names(ds), collapse = ", "))
         })
         

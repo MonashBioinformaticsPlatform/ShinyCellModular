@@ -544,8 +544,8 @@ coverage_plot_ui <- function(id, sc1conf, sc1def) {
 ############################################### Server ###############################################
 
 coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inputs,
-                                 sc1meta_atac, sc1fragmentpaths, sc1annotation_atac,
-                                 sc1peaks, sc1links, sc1atactiles = NULL) {
+                                 sc1meta_atac, sc1fragmentpaths_atac, sc1annotation_atac,
+                                 sc1peaks_atac, sc1links_atac, sc1atactiles = NULL) {
   moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
@@ -572,8 +572,8 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
     # chromosome list for the Region input method, annotation first, peaks as fallback
     chr_choices <- if (!is.null(sc1annotation_atac)) {
       sort(unique(as.character(GenomicRanges::seqnames(sc1annotation_atac))))
-    } else if (!is.null(sc1peaks)) {
-      sort(unique(as.character(GenomicRanges::seqnames(sc1peaks))))
+    } else if (!is.null(sc1peaks_atac)) {
+      sort(unique(as.character(GenomicRanges::seqnames(sc1peaks_atac))))
     } else character(0)
     
     # sending choices and a selected value in the same initial message often doesn't
@@ -626,13 +626,13 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         # falling back to gene_choices[1] here is safe again now that this block is
         # gated behind the Plot button, it only affects the one automatic run on load
         if (is.null(r) && length(gene_choices) > 0) r <- sc_gene_region(gene_choices[1], sc1annotation_atac)
-        if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths)) {
+        if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths_atac)) {
           # temporary debug output for fragment path troubleshooting
           dbg <- paste0(
             "Early return, one of these is NULL:\n",
             "  r is.null: ", is.null(r), "\n",
             "  sc1meta_atac is.null: ", is.null(sc1meta_atac), "\n",
-            "  sc1fragmentpaths is.null: ", is.null(sc1fragmentpaths), "\n",
+            "  sc1fragmentpaths_atac is.null: ", is.null(sc1fragmentpaths_atac), "\n",
             "  input method: '", input$sc1cov_input_method %||% "", "'\n",
             "  gene input: '", gene, "'\n",
             "  chr/start/end input: '", input$sc1cov_chr %||% "", "', '", input$sc1cov_start %||% "", "', '", input$sc1cov_end %||% "", "'\n",
@@ -653,8 +653,8 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           paste0(meta[[split_col]], "_", meta[[grp]]) else meta[[grp]]
         
         # temporary debug output for fragment path troubleshooting
-        frag_status <- vapply(names(sc1fragmentpaths), function(nm) {
-          fi <- sc1fragmentpaths[[nm]]
+        frag_status <- vapply(names(sc1fragmentpaths_atac), function(nm) {
+          fi <- sc1fragmentpaths_atac[[nm]]
           fp <- if (file.exists(fi$path)) fi$path else file.path(dir_inputs, fi$path)
           paste0("  [", nm, "] ", fp, " (exists: ", file.exists(fp), ")")
         }, character(1))
@@ -663,8 +663,8 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           "Group column: ", grp, "\n",
           #"Fragment files:\n", paste(frag_status, collapse = "\n"), "\n",
           # temporary debug output for links troubleshooting
-          "sc1links is.null: ", is.null(sc1links), "\n",
-          "sc1links total length: ", if (is.null(sc1links)) NA else length(sc1links), "\n",
+          "sc1links_atac is.null: ", is.null(sc1links_atac), "\n",
+          "sc1links_atac total length: ", if (is.null(sc1links_atac)) NA else length(sc1links_atac), "\n",
           # temporary debug output for tile matrix troubleshooting
           "sc1atactiles is.null: ", is.null(sc1atactiles), " (", if (is.null(sc1atactiles)) "using live tabix scan" else "using precomputed tile parquet", ")"
         )
@@ -675,7 +675,7 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           if (!is.null(sc1atactiles))
             sc_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
           else
-            sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
+            sc_coverage(sc1fragmentpaths_atac, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) { message("Coverage error: ", conditionMessage(e)); NULL }
         )
         t_data1 <- Sys.time()
@@ -699,8 +699,8 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
         t_tracks0 <- Sys.time()
         fsz <- sList[input$sc1cov_fsz %||% "Medium"]
         track_cov   <- sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz)
-        track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz)           else NULL
-        track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz)           else NULL
+        track_peaks <- if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks_atac, r$chr, r$start, r$end, base_size = fsz)           else NULL
+        track_links <- if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links_atac, r$chr, r$start, r$end, base_size = fsz)           else NULL
         track_annot <- if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL
         track_expr  <- if (isTRUE(input$sc1cov_show_expr)) {
           g <- trimws(input$sc1cov_expr_gene %||% "")
@@ -792,14 +792,14 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           if (!is.null(sc1atactiles))
             sc_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
           else
-            sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
+            sc_coverage(sc1fragmentpaths_atac, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) NULL
         )
         fsz <- sList[input$sc1cov_fsz %||% "Medium"]
         p <- sc_combine_tracks(
           list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
-               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
-               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks_atac, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links_atac, r$chr, r$start, r$end, base_size = fsz) else NULL,
                annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL),
           c(coverage = 10, peaks = 1, links = 2, annotation = 2)
         )
@@ -836,14 +836,14 @@ coverage_plot_server <- function(id, sc1conf, sc1meta, sc1gene, sc1def, dir_inpu
           if (!is.null(sc1atactiles))
             sc_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
           else
-            sc_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
+            sc_coverage(sc1fragmentpaths_atac, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) NULL
         )
         fsz <- sList[input$sc1cov_fsz %||% "Medium"]
         p <- sc_combine_tracks(
           list(coverage   = sc_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
-               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
-               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               peaks      = if (isTRUE(input$sc1cov_show_peaks)) sc_plot_peaks(sc1peaks_atac, r$chr, r$start, r$end, base_size = fsz) else NULL,
+               links      = if (isTRUE(input$sc1cov_show_links)) sc_plot_links(sc1links_atac, r$chr, r$start, r$end, base_size = fsz) else NULL,
                annotation = if (isTRUE(input$sc1cov_show_annot)) sc_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL),
           c(coverage = 10, peaks = 1, links = 2, annotation = 2)
         )

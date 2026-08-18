@@ -497,8 +497,8 @@ track_plot_ui <- function(id, sc1conf_atac, sc1def_atac) {
 ############################################### Server ###############################################
 
 track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
-                              sc1meta_atac, sc1fragmentpaths, sc1annotation_atac,
-                              sc1peaks, sc1links, sc1atactiles = NULL) {
+                              sc1meta_atac, sc1fragmentpaths_atac, sc1annotation_atac,
+                              sc1peaks_atac, sc1links_atac, sc1atactiles = NULL) {
   moduleServer(id, function(input, output, session) {
 
     ns <- session$ns
@@ -522,8 +522,8 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
     # chromosome list for the Region input method, annotation first, peaks as fallback
     chr_choices <- if (!is.null(sc1annotation_atac)) {
       sort(unique(as.character(GenomicRanges::seqnames(sc1annotation_atac))))
-    } else if (!is.null(sc1peaks)) {
-      sort(unique(as.character(GenomicRanges::seqnames(sc1peaks))))
+    } else if (!is.null(sc1peaks_atac)) {
+      sort(unique(as.character(GenomicRanges::seqnames(sc1peaks_atac))))
     } else character(0)
 
     # sending choices and a selected value in the same initial message often doesn't
@@ -570,7 +570,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
         # falling back to gene_choices[1] here is safe again now that this block is
         # gated behind the Plot button, it only affects the one automatic run on load
         if (is.null(r) && length(gene_choices) > 0) r <- trk_gene_region(gene_choices[1], sc1annotation_atac)
-        if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths))
+        if (is.null(r) || is.null(sc1meta_atac) || is.null(sc1fragmentpaths_atac))
           return(ggplot() + theme_void())
 
         r$start <- max(1L, r$start - (input$sc1trk_ext_up %||% 1000))
@@ -587,7 +587,7 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
           if (!is.null(sc1atactiles))
             trk_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
           else
-            trk_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
+            trk_coverage(sc1fragmentpaths_atac, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
           error = function(e) { message("Coverage error: ", conditionMessage(e)); NULL }
         )
 
@@ -599,8 +599,8 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
 
         fsz <- sList[input$sc1trk_fsz %||% "Medium"]
         track_cov   <- trk_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz)
-        track_peaks <- if (isTRUE(input$sc1trk_show_peaks)) trk_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz)           else NULL
-        track_links <- if (isTRUE(input$sc1trk_show_links)) trk_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz)           else NULL
+        track_peaks <- if (isTRUE(input$sc1trk_show_peaks)) trk_plot_peaks(sc1peaks_atac, r$chr, r$start, r$end, base_size = fsz)           else NULL
+        track_links <- if (isTRUE(input$sc1trk_show_links)) trk_plot_links(sc1links_atac, r$chr, r$start, r$end, base_size = fsz)           else NULL
         track_annot <- if (isTRUE(input$sc1trk_show_annot)) trk_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL
 
         trk_combine_tracks(
@@ -665,14 +665,14 @@ track_plot_server <- function(id, sc1conf_atac, sc1def_atac, dir_inputs,
         if (!is.null(sc1atactiles))
           trk_coverage_tiles(sc1atactiles, meta, "__grp__", r$chr, r$start, r$end)
         else
-          trk_coverage(sc1fragmentpaths, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
+          trk_coverage(sc1fragmentpaths_atac, meta, "__grp__", r$chr, r$start, r$end, 100, dir_inputs),
         error = function(e) NULL
       )
       fsz <- sList[input$sc1trk_fsz %||% "Medium"]
       trk_combine_tracks(
         list(coverage   = trk_plot_coverage(cov_df, r$chr, r$start, r$end, base_size = fsz),
-             peaks      = if (isTRUE(input$sc1trk_show_peaks)) trk_plot_peaks(sc1peaks, r$chr, r$start, r$end, base_size = fsz) else NULL,
-             links      = if (isTRUE(input$sc1trk_show_links)) trk_plot_links(sc1links, r$chr, r$start, r$end, base_size = fsz) else NULL,
+             peaks      = if (isTRUE(input$sc1trk_show_peaks)) trk_plot_peaks(sc1peaks_atac, r$chr, r$start, r$end, base_size = fsz) else NULL,
+             links      = if (isTRUE(input$sc1trk_show_links)) trk_plot_links(sc1links_atac, r$chr, r$start, r$end, base_size = fsz) else NULL,
              annotation = if (isTRUE(input$sc1trk_show_annot)) trk_plot_annotation(sc1annotation_atac, r$chr, r$start, r$end, base_size = fsz) else NULL),
         c(coverage = 10, peaks = 1, links = 2, annotation = 2)
       )

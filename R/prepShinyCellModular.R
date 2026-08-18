@@ -34,6 +34,9 @@ NULL
 #' @param fragments_paths Optional named list of fragment file path overrides by index.
 #'   e.g. \code{list('1' = '/path/to/sample1.tsv.gz')}. If \code{NULL}, paths are copied
 #'   from the original paths in the object. Default: \code{NULL}.
+#' 
+#' @param do_markers_atac Compute marker peaks with presto. Default: \code{FALSE}.
+#' @param markers_file_atac Path to a precomputed marker peaks parquet file. Default: \code{NULL} (auto).
 #' @param do_motifs Extract motifs from ATAC assay. Runs automatically when ATAC is in
 #'   \code{assays_selected} and the motifs slot is populated. Set to \code{FALSE} to skip.
 #'   Default: \code{'auto'}.
@@ -158,6 +161,8 @@ prepShinyCellModular <- function(
     gene_mapping = TRUE,
     # motif extraction  -  runs automatically when ATAC is in assays_selected
     # and the motifs slot is populated; set to FALSE to skip
+    do_markers_atac = FALSE,      # optional: compute marker peaks via presto::wilcoxauc, ATAC counterpart of do_markers
+markers_file_atac = NULL,    # optional: path to a pre-computed marker peaks parquet, or output path. Default: auto.
     do_motifs = "auto",
     motifs_findmotifs = NULL,   # optional: output of FindMotifs(), adds enrichment scores
     motifs_overwrite = TRUE,
@@ -559,9 +564,95 @@ prepShinyCellModular <- function(
  # if (is.null(markers_file))   markers_file   <- file.path(out_dir, "markergenes_lists.parquet")
 #  if (is.null(counts_h5_file)) counts_h5_file <- file.path(out_dir, "sc1counts.h5")
   
-  if (is.null(markers_file))   markers_file   <- file.path(out_dir, "RNA", "markergenes_lists.parquet")
+  #if (is.null(markers_file))   markers_file   <- file.path(out_dir, "RNA", "markergenes_lists.parquet")
   if (is.null(counts_h5_file)) counts_h5_file <- file.path(out_dir, "RNA", "sc1counts.h5")
+
+  if (is.null(markers_file_atac))   markers_file_atac   <- file.path(out_dir, "ATAC", "markerpeaks_lists.parquet")
   
+
+
+
+#  Marker genes (RNA): resolve markers_file / do_markers upfront 
+canonical_markers_file <- file.path(out_dir, "RNA", "markergenes_lists.parquet")
+
+if (!is.null(markers_file)) {
+  # User supplied their own file. Validate it, copy it to where the app loader
+  # expects to find it, and skip computation entirely  we already have a file.
+  if (tolower(tools::file_ext(markers_file)) != "parquet") {
+    stop("markers_file must be a .parquet file, got: ", markers_file, call. = FALSE)
+  }
+  if (!file.exists(markers_file)) {
+    stop("markers_file does not exist: ", markers_file, call. = FALSE)
+  }
+  tryCatch(
+    arrow::read_parquet(markers_file, as_data_frame = FALSE),
+    error = function(e) stop("markers_file is not a readable parquet file: ", markers_file,
+                              " (", conditionMessage(e), ")", call. = FALSE)
+  )
+
+  if (isTRUE(do_markers)) {
+    warning(
+      "Both markers_file and do_markers = TRUE were supplied. Using the provided ",
+      "file as-is and setting do_markers to FALSE. Remove markers_file if you want ",
+      "prepShinyCellModular to compute markers instead.",
+      call. = FALSE
+    )
+  }
+  do_markers <- FALSE
+
+  dir.create(dirname(canonical_markers_file), recursive = TRUE, showWarnings = FALSE)
+  if (!identical(normalizePath(markers_file, mustWork = FALSE),
+                 normalizePath(canonical_markers_file, mustWork = FALSE))) {
+    .msg("Copying supplied markers_file to canonical location: ", canonical_markers_file)
+    file.copy(markers_file, canonical_markers_file, overwrite = TRUE)
+  }
+} else {
+  # No file supplied. markers_file becomes the canonical path — only actually
+  # written if do_markers is TRUE, in the block below.
+  markers_file <- canonical_markers_file
+}
+
+
+#  Marker peaks (ATAC): resolve markers_file_atac / do_markers_atac upfront 
+canonical_markers_file_atac <- file.path(out_dir, "ATAC", "markerpeaks_lists.parquet")
+
+if (!is.null(markers_file_atac)) {
+  # User supplied their own file. Validate it, copy it to where the app loader
+  # expects to find it, and skip computation entirely  we already have a file.
+  if (tolower(tools::file_ext(markers_file_atac)) != "parquet") {
+    stop("markers_file_atac must be a .parquet file, got: ", markers_file_atac, call. = FALSE)
+  }
+  if (!file.exists(markers_file_atac)) {
+    stop("markers_file_atac does not exist: ", markers_file_atac, call. = FALSE)
+  }
+  tryCatch(
+    arrow::read_parquet(markers_file_atac, as_data_frame = FALSE),
+    error = function(e) stop("markers_file_atac is not a readable parquet file: ", markers_file_atac,
+                              " (", conditionMessage(e), ")", call. = FALSE)
+  )
+
+  if (isTRUE(do_markers_atac)) {
+    warning(
+      "Both markers_file_atac and do_markers_atac = TRUE were supplied. Using the provided ",
+      "file as-is and setting do_markers_atac to FALSE. Remove markers_file_atac if you want ",
+      "prepShinyCellModular to compute marker peaks instead.",
+      call. = FALSE
+    )
+  }
+  do_markers_atac <- FALSE
+
+  dir.create(dirname(canonical_markers_file_atac), recursive = TRUE, showWarnings = FALSE)
+  if (!identical(normalizePath(markers_file_atac, mustWork = FALSE),
+                 normalizePath(canonical_markers_file_atac, mustWork = FALSE))) {
+    .msg("Copying supplied markers_file_atac to canonical location: ", canonical_markers_file_atac)
+    file.copy(markers_file_atac, canonical_markers_file_atac, overwrite = TRUE)
+  }
+} else {
+  # No file supplied. markers_file_atac becomes the canonical path — only actually
+  # written if do_markers_atac is TRUE, in the block below.
+  markers_file_atac <- canonical_markers_file_atac
+}
+
   ###########################################################################
   # Dependency Check
   ###########################################################################
@@ -812,7 +903,46 @@ prepShinyCellModular <- function(
       } else {
         .msg("No motifs slot found or do_motifs = FALSE  -  skipping motif extraction")
       }
-      
+#### adding marker peaks  - not normalized  
+if (isTRUE(do_markers_atac)) {
+  .need_pkg("presto")
+  .need_pkg("arrow")
+  if (file.exists(markers_file_atac) && !isTRUE(markers_overwrite)) {
+    .msg("Marker peaks file exists, skipping (set markers_overwrite=TRUE to regenerate): ", markers_file_atac)
+  } else {
+    .msg("Computing marker peaks with presto::wilcoxauc")
+    meta_cols   <- colnames(seurat_obj@meta.data)
+    resolutions <- meta_cols[grepl(markers_res_pattern, meta_cols)]
+    if (!length(resolutions))
+      stop("No resolution columns found using pattern: ", markers_res_pattern, call. = FALSE)
+
+    Seurat::DefaultAssay(seurat_obj) <- active_assay_atac
+    peak_expr <- Seurat::GetAssayData(seurat_obj, layer = "counts")
+
+    markerpeaks_list <- NULL
+
+    for (res in resolutions) {
+      clusters <- seurat_obj@meta.data[[res]]
+      if (length(unique(clusters)) < 2) {
+        .msg("  Skipping marker peaks for: ", res, " (fewer than 2 unique groups)")
+        next
+      }
+      .msg("  Marker peaks for: ", res)
+      clusters <- seurat_obj@meta.data[[res]]
+      mk       <- presto::wilcoxauc(peak_expr, clusters)
+      mk       <- as.data.frame(mk)
+      mk$annotation <- res
+      markerpeaks_list <- if (is.null(markerpeaks_list)) mk else rbind(markerpeaks_list, mk)
+    }
+    .msg("Writing marker peaks to: ", markers_file_atac)
+    arrow::write_parquet(markerpeaks_list, markers_file_atac)
+  }
+} else {
+  .msg("Marker peaks optional is OFF, skipping marker peak generation")
+}
+
+
+
       .msg("Extracting static ATAC objects (annotation, peaks, links, fragments)")
       #.extract_atac_static(seurat_obj, active_assay, atac_out_dir, fragments_paths)
       frag_info <- .extract_atac_static(seurat_obj, active_assay, atac_out_dir, fragments_paths)
