@@ -567,7 +567,7 @@ markers_file_atac = NULL,    # optional: path to a pre-computed marker peaks par
   #if (is.null(markers_file))   markers_file   <- file.path(out_dir, "RNA", "markergenes_lists.parquet")
   if (is.null(counts_h5_file)) counts_h5_file <- file.path(out_dir, "RNA", "sc1counts.h5")
 
-  if (is.null(markers_file_atac))   markers_file_atac   <- file.path(out_dir, "ATAC", "markerpeaks_lists.parquet")
+ # if (is.null(markers_file_atac))   markers_file_atac   <- file.path(out_dir, "ATAC", "markerpeaks_lists.parquet")
   
 
 
